@@ -1,0 +1,2741 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ICB Murici — Painel</title>
+<link rel="icon" type="image/png" href="logo.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Caveat:wght@600;700&family=Poppins:wght@800;900&family=Playfair+Display:ital,wght@0,700;0,900;1,700;1,900&family=Baloo+2:wght@600;700;800&family=Montserrat:wght@800;900&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<style>
+
+/* ══════════════════ ESTRUTURA DE ABAS ══════════════════ */
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;}
+body{background:#12203f;min-height:100vh;}
+
+.tabbar{
+  position:sticky; top:0; z-index:600;
+  display:flex;
+  background:#12203f;
+  box-shadow:0 2px 12px rgba(0,0,0,.3);
+}
+/* ── LOGO DA IGREJA (fixa no topo esquerdo da barra de abas) ── */
+.tabbar-logo{
+  flex:0 0 auto;
+  position:relative;
+  display:flex; align-items:center; justify-content:center;
+  width:50px; padding:7px 4px;
+  cursor:pointer;
+}
+.tabbar-logo-img{
+  width:34px;height:34px;border-radius:50%;overflow:hidden;flex-shrink:0;
+  background:rgba(255,255,255,.08); border:1.5px solid rgba(255,255,255,.28);
+  display:flex;align-items:center;justify-content:center;
+  font-size:16px; color:#f0c040;
+  transition:border-color .15s,transform .12s,background .15s;
+}
+.tabbar-logo:hover .tabbar-logo-img{ border-color:#f0c040; transform:scale(1.06); background:rgba(255,255,255,.14); }
+.tabbar-logo-img img{ width:100%;height:100%;object-fit:cover; }
+.tabbar-logo-remove{
+  position:absolute; top:2px; right:0;
+  width:16px;height:16px;border-radius:50%;
+  background:#c0392b;color:#fff;border:1.5px solid #12203f;
+  font-size:11px;line-height:1;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  padding:0;
+}
+.tabbtn{
+  flex:1;
+  display:flex; flex-direction:column; align-items:center; gap:2px;
+  padding:12px 6px 10px;
+  background:transparent; border:none;
+  border-bottom:3px solid transparent;
+  color:#9fb0d9;
+  font-family:'Segoe UI',Arial,sans-serif;
+  font-size:12.5px; font-weight:700;
+  cursor:pointer;
+  transition:color .15s,background .15s,border-color .15s;
+}
+.tabbtn .tab-ico{ font-size:19px; line-height:1; }
+.tabbtn:hover{ color:#fff; background:rgba(255,255,255,.06); }
+.tabbtn.active{ color:#fff; border-bottom-color:#f0c040; background:rgba(255,255,255,.07); }
+
+.tab-panel{ display:none; }
+.tab-panel.active{ display:block; }
+
+/* ══════════════════ AVISO TEMPORÁRIO — ANIVERSÁRIOS PRÓXIMOS ══════════════════ */
+/* Notificação curta (some sozinha após alguns segundos) exibida no topo da tela
+   ao abrir a página, avisando sobre aniversários de hoje/amanhã/próximos dias.
+   É independente do #aniversarioBanner (que é o banner completo, com cartão e
+   mensagem, exclusivo do(s) aniversariante(s) de hoje). */
+#avisoProximoAniversario{
+  position:fixed; top:0; left:0; right:0; z-index:9999;
+  transform:translateY(-115%);
+  transition:transform .35s ease;
+  background:linear-gradient(135deg,#f0c040,#e0952f);
+  box-shadow:0 3px 14px rgba(0,0,0,.28);
+  padding:10px 16px;
+  font-family:'Segoe UI',Arial,sans-serif;
+}
+#avisoProximoAniversario.on{ transform:translateY(0); }
+#avisoProximoAniversario .aviso-linha{
+  display:flex; align-items:center; gap:8px;
+  font-size:13px; font-weight:700; color:#3a2200;
+  padding:3px 0; max-width:640px; margin:0 auto;
+}
+#avisoProximoAniversario .aviso-linha + .aviso-linha{
+  border-top:1px solid rgba(0,0,0,.12); margin-top:3px; padding-top:6px;
+}
+
+/* ══════════════════ BANNER DE ANIVERSÁRIO ══════════════════ */
+#aniversarioBanner{
+  position:relative;
+  z-index:550;
+  background:linear-gradient(135deg,#7c3aed,#c9a84c 130%);
+  padding:14px 14px 16px;
+  display:none;
+}
+#aniversarioBanner.on{ display:block; }
+.aniv-fechar-todos{
+  position:absolute; top:8px; right:10px;
+  background:rgba(0,0,0,.2); border:none; color:#fff;
+  width:26px;height:26px;border-radius:50%;
+  font-size:15px; cursor:pointer; line-height:1;
+  display:flex;align-items:center;justify-content:center;
+}
+.aniv-wrap{ max-width:640px; margin:0 auto; }
+.aniv-titulo{
+  color:#fff; font-family:'Segoe UI',Arial,sans-serif;
+  font-weight:800; font-size:14.5px; margin-bottom:10px;
+  display:flex; align-items:center; gap:7px;
+  padding-right:30px;
+}
+.aniv-card{
+  background:rgba(255,255,255,.96);
+  border-radius:12px;
+  padding:12px 14px;
+  margin-bottom:8px;
+  box-shadow:0 3px 12px rgba(0,0,0,.15);
+}
+.aniv-card:last-child{ margin-bottom:0; }
+.aniv-nome{
+  font-family:'Segoe UI',Arial,sans-serif;
+  font-weight:800; font-size:13.5px; color:#4a2e7a;
+  margin-bottom:6px; display:flex; align-items:center; gap:6px;
+}
+.aniv-msg{
+  width:100%;
+  font-family:'Segoe UI',Arial,sans-serif;
+  font-size:13px; color:#2a2a2a; line-height:1.55;
+  border:1.5px solid #e0d5f5; border-radius:8px;
+  padding:8px 10px; resize:vertical; min-height:64px;
+  background:#faf7ff;
+}
+.aniv-copiar{
+  background:#7c3aed; color:#fff; border:none;
+  border-radius:8px; padding:8px 16px;
+  font-family:'Segoe UI',Arial,sans-serif;
+  font-size:12.5px; font-weight:700; cursor:pointer;
+  display:inline-flex; align-items:center; gap:6px;
+  height:34px; line-height:1; box-sizing:border-box;
+  transition:background .15s;
+}
+.aniv-copiar:hover{ background:#6425d0; }
+
+/* ══════════════════ ABA MEMBROS — extras ══════════════════ */
+.membro-mes-item{
+  display:flex;align-items:center;gap:10px;
+  padding:9px 12px;border-radius:9px;
+  background:var(--bg);border:1px solid var(--bd);
+  margin-bottom:6px;
+}
+.membro-mes-item.hoje{
+  background:var(--dourado2);border-color:var(--dourado);
+}
+.membro-mes-dia{
+  font-weight:800;font-size:15px;color:var(--azul);
+  min-width:34px;text-align:center;
+}
+.membro-mes-item.hoje .membro-mes-dia{ color:#7a5000; }
+.membro-mes-nome{ font-weight:700;font-size:13.5px;flex:1; }
+.membro-badge-hoje{
+  background:var(--dourado);color:#fff;font-size:10.5px;font-weight:800;
+  padding:2px 8px;border-radius:20px;letter-spacing:.03em;
+}
+.membro-mes-avatar{
+  width:28px;height:28px;border-radius:50%;overflow:hidden;flex-shrink:0;
+  background:linear-gradient(135deg,var(--azul),var(--azul2));
+  display:flex;align-items:center;justify-content:center;
+  color:#fff;font-weight:800;font-size:12px;
+}
+.membro-mes-avatar img{width:100%;height:100%;object-fit:cover;}
+
+/* fotos nos avatares da lista completa de membros — o formato (moldura) vem
+   da classe aplicada ao container (.moldura-*); o <img> só precisa preencher. */
+.escala-avatar{overflow:hidden;}
+.escala-avatar img{width:100%;height:100%;object-fit:cover;}
+
+/* ── FOTO PREVIEW NO FORMULÁRIO DE MEMBRO ── */
+.foto-preview-wrap{
+  display:flex;align-items:center;gap:12px;margin-top:8px;flex-wrap:wrap;
+}
+.foto-preview{
+  width:62px;height:62px;border-radius:50%;overflow:hidden;
+  background:var(--azul-claro);display:flex;align-items:center;justify-content:center;
+  font-size:24px;color:var(--muted);flex-shrink:0;border:1.5px solid var(--bd);
+}
+.foto-preview img{width:100%;height:100%;object-fit:cover;}
+.foto-upload-botoes{display:flex;flex-direction:column;gap:6px;flex:1;min-width:160px;}
+.btn-upload-foto,.btn-ajustar-foto{
+  border:1.5px solid var(--bd);border-radius:9px;background:var(--bg);color:var(--tx);
+  padding:8px 13px;font-size:12.5px;font-weight:700;cursor:pointer;
+  display:inline-flex;align-items:center;gap:6px;justify-content:center;
+  transition:background .15s,border-color .15s,color .15s;width:100%;
+}
+.btn-upload-foto:hover,.btn-ajustar-foto:hover{background:var(--azul-claro);border-color:var(--azul2);color:var(--azul);}
+.btn-remover-foto{
+  background:#fee2e2;color:#c0392b;border:none;border-radius:9px;
+  padding:8px 13px;font-size:12.5px;font-weight:700;cursor:pointer;width:100%;
+  display:inline-flex;align-items:center;gap:6px;justify-content:center;
+  transition:background .15s;
+}
+.btn-remover-foto:hover{background:#fca5a5;}
+
+/* ── CONFIGURAÇÃO DE FUNDOS DOS CARTÕES (aba ⚙️) ── */
+.fundo-item{
+  display:flex;align-items:center;gap:12px;
+  padding:10px 12px;border-radius:12px;
+  background:var(--bg);border:1px solid var(--bd);
+  margin-bottom:10px;flex-wrap:wrap;
+}
+.fundo-preview{
+  width:64px;height:80px;border-radius:8px;overflow:hidden;flex-shrink:0;
+  background:linear-gradient(160deg,#0d1650 0%,#1a2a7a 55%,#2438a0 100%);
+  display:flex;align-items:center;justify-content:center;
+  font-size:22px;border:1.5px solid var(--bd);
+  background-size:cover;background-position:center;
+}
+.fundo-preview img{width:100%;height:100%;object-fit:cover;display:block;}
+.fundo-info{flex:1;min-width:140px;}
+.fundo-titulo{font-weight:800;font-size:13.5px;color:var(--tx);margin-bottom:2px;}
+.fundo-status{font-size:11.5px;color:var(--muted);}
+.fundo-botoes{display:flex;gap:6px;flex-wrap:wrap;}
+.btn-fundo-upload,.btn-fundo-remover{
+  border:none;border-radius:8px;
+  padding:7px 12px;font-size:12px;font-weight:700;cursor:pointer;
+  display:inline-flex;align-items:center;gap:5px;white-space:nowrap;
+}
+.btn-fundo-upload{background:var(--azul-claro);color:var(--azul);border:1.5px solid var(--azul2);}
+.btn-fundo-upload:hover{background:var(--azul2);color:#fff;}
+.btn-fundo-remover{background:#fee2e2;color:#c0392b;}
+.btn-fundo-remover:hover{background:#fca5a5;}
+
+/* ── EDITOR DE ENQUADRAMENTO (RECORTE MANUAL DA FOTO) ── */
+.crop-modal-box{max-width:380px;text-align:left;}
+.crop-modal-box .modal-titulo{text-align:center;}
+.crop-modal-box .modal-desc{text-align:center;}
+
+/* ── SELETOR DE FORMATO DE MOLDURA (dentro do editor de recorte) ── */
+.crop-moldura-opcoes{
+  display:flex;gap:6px;flex-wrap:wrap;justify-content:center;
+  margin-bottom:12px;
+}
+.crop-moldura-btn{
+  display:flex;flex-direction:column;align-items:center;gap:5px;
+  border:1.5px solid var(--bd);background:var(--bg);border-radius:9px;
+  padding:7px 8px 6px;font-size:10px;font-weight:700;color:var(--tx);
+  cursor:pointer;min-width:58px;font-family:inherit;
+  transition:border-color .15s,background .15s,color .15s;
+}
+.crop-moldura-btn:hover{border-color:var(--azul2);}
+.crop-moldura-btn.ativo{border-color:var(--azul2);background:var(--azul-claro);color:var(--azul);}
+.crop-moldura-ico{
+  width:22px;height:22px;background:var(--muted);opacity:.5;
+  transition:background .15s,opacity .15s;
+}
+.crop-moldura-btn.ativo .crop-moldura-ico{background:var(--azul2);opacity:1;}
+.crop-moldura-ico.moldura-quadrado{width:20px !important;height:20px !important;border-radius:10% !important;aspect-ratio:unset !important;}
+.crop-moldura-ico.moldura-retangulo{width:24px !important;height:19px !important;border-radius:10% !important;aspect-ratio:unset !important;}
+.crop-moldura-ico.moldura-redondo{width:20px !important;height:20px !important;border-radius:50% !important;aspect-ratio:unset !important;}
+.crop-moldura-ico.moldura-retrato{width:16px !important;height:22px !important;border-radius:10% !important;aspect-ratio:unset !important;}
+.crop-moldura-ico.moldura-paisagem{width:26px !important;height:15px !important;border-radius:10% !important;aspect-ratio:unset !important;}
+
+/* ── FORMAS DE MOLDURA aplicadas aos avatares/fotos em qualquer lugar do app ──
+   A altura do "slot" original é preservada (não altera o layout das listas);
+   a largura passa a ser automática, seguindo a proporção escolhida. Assim o
+   mesmo formato selecionado no recorte é mantido ao exibir a foto depois. */
+.moldura-quadrado{ aspect-ratio:1/1 !important; width:auto !important; border-radius:10% !important; }
+.moldura-retangulo{ aspect-ratio:5/4 !important; width:auto !important; border-radius:10% !important; }
+.moldura-redondo{ aspect-ratio:1/1 !important; width:auto !important; border-radius:50% !important; }
+.moldura-retrato{ aspect-ratio:3/4 !important; width:auto !important; border-radius:10% !important; }
+.moldura-paisagem{ aspect-ratio:16/9 !important; width:auto !important; border-radius:10% !important; }
+
+.crop-stage{
+  position:relative;width:100%;aspect-ratio:872/728;
+  border-radius:10px;overflow:hidden;background:#0d1224;
+  touch-action:none;cursor:grab;margin:0 auto;
+  border:2px solid var(--bd);
+}
+.crop-stage:active{cursor:grabbing;}
+.crop-stage img{
+  position:absolute;top:0;left:0;user-select:none;
+  -webkit-user-drag:none;will-change:transform;pointer-events:none;
+}
+.crop-zoom-row{display:flex;align-items:center;gap:10px;margin-top:14px;font-size:16px;}
+.crop-zoom-row input[type=range]{flex:1;accent-color:var(--azul2);}
+.crop-dica{font-size:11.5px;color:var(--muted);text-align:center;margin-top:8px;}
+
+/* ── BOTÃO "GERAR IMAGEM" NO CARD DE ANIVERSÁRIO (BANNER) ── */
+.aniv-card-logo-mini{display:flex;justify-content:center;margin-bottom:8px;}
+.aniv-card-logo-mini img{height:22px;width:auto;object-fit:contain;}
+.aniv-card-topo{display:flex;align-items:center;gap:10px;margin-bottom:6px;}
+.aniv-card-foto{
+  width:44px;height:44px;border-radius:50%;overflow:hidden;flex-shrink:0;
+  background:linear-gradient(135deg,#7c3aed,#c9a84c);
+  display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;
+}
+.aniv-card-foto img{width:100%;height:100%;object-fit:cover;}
+.aniv-acoes-row{display:flex;align-items:center;gap:8px;margin-top:8px;flex-wrap:wrap;}
+.aniv-gerar-imagem{
+  margin-top:0;background:#1a3a6b;color:#fff;border:none;
+  border-radius:8px;padding:8px 16px;font-family:'Segoe UI',Arial,sans-serif;
+  font-size:12.5px;font-weight:700;cursor:pointer;
+  display:inline-flex;align-items:center;gap:6px;
+  height:34px;line-height:1;box-sizing:border-box;
+  transition:background .15s;
+}
+.aniv-gerar-imagem:hover{background:#245199;}
+
+/* ── CARTÃO DE ANIVERSÁRIO (GERAÇÃO DE IMAGEM PNG) ── */
+#aniv-render-area{
+  position:fixed;left:-9999px;top:0;
+  width:1080px;height:1350px;
+  font-family:'Poppins',Arial,sans-serif;
+  background:linear-gradient(160deg,#0d1650 0%,#1a2a7a 55%,#2438a0 100%);
+  overflow:hidden;z-index:-1;
+}
+.aniv-card-deco-1{
+  position:absolute;top:-90px;left:-90px;width:280px;height:280px;border-radius:50%;
+  background:radial-gradient(circle at 32% 28%,#ffe8a8,#e8b93e 55%,#a9781f 100%);
+}
+.aniv-card-deco-2{
+  position:absolute;bottom:-110px;right:-100px;width:320px;height:320px;border-radius:50%;
+  background:radial-gradient(circle at 32% 28%,#ffe8a8,#e8b93e 55%,#a9781f 100%);
+}
+.aniv-card-star{position:absolute;color:#f0d080;text-shadow:0 0 12px rgba(240,208,128,.6);}
+.aniv-card-frame{
+  position:absolute;top:260px;left:88px;right:88px;
+  height:760px;background:#fff;border-radius:6px;padding:16px;
+  box-shadow:0 20px 60px rgba(0,0,0,.35);
+  display:flex;align-items:center;justify-content:center;
+}
+.aniv-card-frame-inner{
+  width:100%;height:100%;border-radius:2px;overflow:hidden;
+  background:linear-gradient(135deg,#dfe6f2,#c7d1e6);
+  display:flex;align-items:center;justify-content:center;
+}
+.aniv-card-frame-inner img{width:100%;height:100%;object-fit:cover;}
+.aniv-card-frame-inner .aniv-card-placeholder{font-size:140px;color:#8b98b8;}
+.aniv-card-feliz{
+  position:absolute;left:0;right:0;top:1040px;
+  font-family:'Caveat',cursive;font-weight:700;color:#f0d080;
+  font-size:48px;line-height:1.1;text-align:center;
+}
+.aniv-card-nome{
+  position:absolute;left:64px;right:64px;top:1165px;
+  /* Adulto (padrão): fonte elegante */
+  font-family:'Playfair Display',Georgia,serif;font-style:italic;font-weight:900;color:#f2dfa0;
+  font-size:60px;line-height:1.05;text-transform:uppercase;
+  letter-spacing:1px;word-break:break-word;text-align:center;
+}
+.aniv-card-logo{
+  position:absolute;left:0;right:0;bottom:46px;
+  color:#dbe4f5;font-size:22px;font-weight:800;opacity:.9;
+  display:flex;align-items:center;justify-content:center;gap:8px;
+}
+.aniv-card-logo-img{width:26px;height:26px;border-radius:50%;object-fit:cover;flex-shrink:0;}
+/* Logo da igreja: centralizada, acima da foto do membro. */
+.aniv-card-logo-topo{
+  position:absolute;top:30px;left:0;right:0;
+  display:flex;align-items:center;justify-content:center;
+}
+.aniv-card-logo-topo img{
+  max-height:100px;max-width:260px;object-fit:contain;
+  filter:drop-shadow(0 2px 10px rgba(0,0,0,.4));
+}
+
+/* ══════════════════ FUNDOS DO CARTÃO POR SEXO/CATEGORIA ══════════════════
+   Cada uma das 6 combinações (adulto/kids/teens × homem/mulher) usa uma
+   imagem de fundo própria (placeholder — quando as imagens forem enviadas,
+   basta colocar os arquivos na mesma pasta do HTML com os nomes abaixo, ou
+   trocar o nome dentro do url() correspondente). Enquanto o arquivo não
+   existir, o gradiente definido em seguida é usado como reserva visual,
+   então o layout já funciona normalmente antes das imagens chegarem. */
+
+#aniv-render-area.cartao-adulto-homem{
+  background: linear-gradient(160deg,#0d1650 0%,#1a2a7a 55%,#2438a0 100%);
+}
+#aniv-render-area.cartao-adulto-mulher{
+  background: linear-gradient(160deg,#7a0d2e 0%,#b3235c 55%,#e0568f 100%);
+}
+#aniv-render-area.cartao-kids-menina{
+  background: linear-gradient(160deg,#ffd3e6 0%,#ffb8d9 55%,#ff9fce 100%);
+}
+#aniv-render-area.cartao-kids-menino{
+  background: linear-gradient(160deg,#cfe8ff 0%,#a9d6ff 55%,#8ac4ff 100%);
+}
+#aniv-render-area.cartao-teens-menina{
+  background: linear-gradient(160deg,#5c0a2e 0%,#7a0f3d 55%,#9c1450 100%);
+}
+#aniv-render-area.cartao-teens-menino{
+  background: linear-gradient(160deg,#0a1a3d 0%,#102a5c 55%,#163a7a 100%);
+}
+
+/* Textos precisam de mais contraste nos fundos claros (Kids) */
+#aniv-render-area.cartao-kids-menina .aniv-card-feliz,
+#aniv-render-area.cartao-kids-menino .aniv-card-feliz{
+  color:#6b3a1f;
+}
+#aniv-render-area.cartao-kids-menina .aniv-card-nome,
+#aniv-render-area.cartao-kids-menino .aniv-card-nome{
+  color:#4a2740;
+}
+#aniv-render-area.cartao-kids-menina .aniv-card-logo,
+#aniv-render-area.cartao-kids-menino .aniv-card-logo{
+  color:#4a2740;
+}
+
+/* ══════════════════ FONTE DO NOME POR CATEGORIA ══════════════════
+   Adulto (padrão) já usa fonte elegante definida em .aniv-card-nome.
+   Kids e Teens sobrescrevem a fonte conforme a categoria abaixo. */
+#aniv-render-area.cartao-kids-menina .aniv-card-nome,
+#aniv-render-area.cartao-kids-menino .aniv-card-nome{
+  /* Kids: fonte infantil, arredondada e divertida */
+  font-family:'Baloo 2',cursive;font-style:normal;font-weight:800;
+}
+#aniv-render-area.cartao-teens-menina .aniv-card-nome,
+#aniv-render-area.cartao-teens-menino .aniv-card-nome{
+  /* Teens: fonte moderna, mais impactante/urbana */
+  font-family:'Montserrat',Arial,sans-serif;font-style:normal;font-weight:900;
+}
+
+/* Balões decorativos (Kids) */
+.aniv-card-balao{
+  position:absolute; font-size:64px;
+  filter:drop-shadow(0 6px 10px rgba(0,0,0,.2));
+}
+
+/* Círculos com borda dourada + confetes (Teens) */
+.aniv-card-circulo-dourado{
+  position:absolute; border-radius:50%; border:5px solid #f0d080;
+  box-shadow:0 0 18px rgba(240,208,128,.45);
+}
+.aniv-card-confete{
+  position:absolute; font-size:26px;
+}
+
+
+/* ══════════════════ ESTILOS — ABA ESCALA (ICB Murici) ══════════════════ */
+
+:root {
+  --azul:#1a3a6b;
+  --azul2:#245199;
+  --azul-claro:#e8f0fb;
+  --dourado:#c9a84c;
+  --dourado2:#f0d080;
+  --bg:#f2f5fb;
+  --branco:#ffffff;
+  --tx:#1c2340;
+  --muted:#6b7a99;
+  --bd:#d0d9ee;
+  --r:12px;
+  --sh:0 2px 14px rgba(26,58,107,.10);
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+#tab-escala{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);color:var(--tx);min-height:100vh;}
+
+/* ── HEADER ── */
+header{
+  background:linear-gradient(135deg,var(--azul) 0%,var(--azul2) 100%);
+  color:#fff;
+  padding:18px 20px 14px;
+  display:flex;align-items:center;gap:14px;
+  box-shadow:0 3px 16px rgba(26,58,107,.25);
+}
+.header-icon{font-size:32px;}
+header h1{font-size:19px;font-weight:800;letter-spacing:.2px;}
+header p{font-size:12px;opacity:.75;margin-top:2px;}
+.header-mes{
+  margin-left:auto;
+  background:rgba(255,255,255,.15);
+  border-radius:20px;
+  padding:5px 14px;
+  font-size:13px;
+  font-weight:700;
+  letter-spacing:.3px;
+  text-transform:uppercase;
+  white-space:nowrap;
+}
+
+/* ── WRAP ── */
+.wrap{max-width:700px;margin:0 auto;padding:20px 14px 60px;}
+
+/* ── CALENDÁRIO ── */
+.cal-card{
+  background:var(--branco);
+  border-radius:var(--r);
+  box-shadow:var(--sh);
+  padding:18px 14px 14px;
+  margin-bottom:18px;
+}
+.cal-nav{
+  display:flex;align-items:center;justify-content:space-between;
+  margin-bottom:14px;
+}
+.cal-titulo{font-size:16px;font-weight:800;color:var(--azul);text-transform:capitalize;}
+.cal-nav-btn{
+  background:var(--azul-claro);border:none;border-radius:9px;
+  width:34px;height:34px;font-size:18px;cursor:pointer;color:var(--azul);
+  display:flex;align-items:center;justify-content:center;
+  transition:background .15s;
+}
+.cal-nav-btn:hover{background:var(--bd);}
+
+/* grid dias da semana */
+.cal-semana{
+  display:grid;grid-template-columns:repeat(7,1fr);
+  gap:3px;margin-bottom:4px;
+}
+.cal-sem-label{
+  text-align:center;font-size:10px;font-weight:700;
+  color:var(--muted);padding:4px 0;text-transform:uppercase;letter-spacing:.4px;
+}
+.cal-sem-label.dom{color:#c0392b;}
+
+/* grid dias */
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;}
+.cal-dia{
+  aspect-ratio:1;border-radius:9px;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;
+  font-size:13px;font-weight:600;cursor:pointer;
+  transition:background .15s,transform .12s;
+  position:relative;padding:2px 1px;
+  gap:1px;
+}
+.cal-dia:hover:not(.vazio){background:var(--azul-claro);}
+.cal-dia.vazio{cursor:default;}
+.cal-dia.hoje{
+  background:var(--azul);color:#fff;
+}
+.cal-dia.hoje:hover{background:var(--azul2);}
+.cal-dia.dom{color:#c0392b;}
+.cal-dia.hoje.dom{color:#fff;}
+.cal-dia.tem-membro{
+  background:var(--dourado2);
+  color:var(--azul);
+}
+.cal-dia.hoje.tem-membro{
+  background:var(--dourado);
+  color:#fff;
+}
+.cal-dia.selecionado:not(.hoje){
+  outline:2px solid var(--azul2);
+  background:var(--azul-claro);
+}
+.dia-num{font-size:13px;font-weight:700;line-height:1;}
+.dia-dot{
+  display:flex;gap:2px;flex-wrap:wrap;justify-content:center;
+  max-width:28px;
+}
+.dia-dot span{
+  width:5px;height:5px;border-radius:50%;
+  background:var(--azul);display:block;
+}
+.cal-dia.tem-membro .dia-dot span{background:var(--azul);}
+.cal-dia.hoje .dia-dot span{background:#fff;}
+.cal-dia.hoje.tem-membro .dia-dot span{background:#fff;}
+
+/* ── LISTA ABAIXO DO CALENDÁRIO ── */
+.lista-titulo{
+  font-size:11px;font-weight:700;text-transform:uppercase;
+  letter-spacing:.7px;color:var(--muted);
+  margin:16px 0 8px;padding-bottom:5px;border-bottom:2px solid var(--bd);
+  display:flex;align-items:center;gap:6px;
+}
+.lista-titulo .dot{width:7px;height:7px;border-radius:50%;background:var(--dourado);flex-shrink:0;}
+.escala-vazia{
+  text-align:center;padding:24px 10px;
+  font-size:13px;color:var(--muted);
+}
+.escala-vazia span{font-size:28px;display:block;margin-bottom:6px;}
+
+/* ── BUSCA E PAGINAÇÃO — LISTA DE MEMBROS ── */
+.membros-filtros{
+  display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;
+}
+.membros-busca-wrap{
+  position:relative;flex:1;min-width:160px;
+}
+.membros-busca-wrap .ico-busca{
+  position:absolute;left:12px;top:50%;transform:translateY(-50%);
+  font-size:14px;color:var(--muted);pointer-events:none;
+}
+.membros-busca-wrap input{
+  width:100%;padding:10px 12px 10px 34px;
+  border:1.5px solid var(--bd);border-radius:9px;
+  font-size:13.5px;font-family:inherit;
+  background:var(--bg);color:var(--tx);
+  transition:border-color .15s;outline:none;box-sizing:border-box;
+}
+.membros-busca-wrap input:focus{border-color:var(--azul2);background:#fff;}
+.membros-busca-wrap .btn-limpar-busca{
+  position:absolute;right:6px;top:50%;transform:translateY(-50%);
+  background:transparent;border:none;color:var(--muted);
+  font-size:13px;cursor:pointer;padding:5px 6px;border-radius:6px;line-height:1;
+}
+.membros-busca-wrap .btn-limpar-busca:hover{background:var(--bd);color:var(--tx);}
+.membros-por-pagina select{
+  padding:10px 10px;border:1.5px solid var(--bd);border-radius:9px;
+  font-size:13px;font-family:inherit;background:var(--bg);color:var(--tx);
+  outline:none;transition:border-color .15s;
+}
+.membros-por-pagina select:focus{border-color:var(--azul2);background:#fff;}
+
+/* ── Filtro de categoria e ordenação — mesmo estilo do seletor "por página" ── */
+.membros-select-wrap select{
+  padding:10px 10px;border:1.5px solid var(--bd);border-radius:9px;
+  font-size:13px;font-family:inherit;background:var(--bg);color:var(--tx);
+  outline:none;transition:border-color .15s;
+}
+.membros-select-wrap select:focus{border-color:var(--azul2);background:#fff;}
+
+.membros-paginacao{
+  display:flex;align-items:center;justify-content:center;gap:10px;
+  margin-top:12px;padding-top:12px;border-top:1px solid var(--bd);
+}
+.membros-paginacao button{
+  background:var(--azul-claro);color:var(--azul);border:1.5px solid var(--bd);
+  border-radius:8px;padding:7px 12px;font-size:13px;font-weight:700;
+  cursor:pointer;transition:background .15s;
+}
+.membros-paginacao button:hover:not(:disabled){background:var(--bd);}
+.membros-paginacao button:disabled{opacity:.4;cursor:default;}
+.membros-paginacao .membros-pag-info{
+  font-size:12.5px;color:var(--muted);font-weight:600;white-space:nowrap;
+}
+
+.escala-grupo{margin-bottom:14px;}
+.escala-data-label{
+  font-size:11px;font-weight:700;color:var(--azul2);
+  background:var(--azul-claro);border-radius:7px;
+  padding:4px 10px;margin-bottom:6px;display:inline-block;
+}
+.escala-item{
+  background:var(--bg);border:1px solid var(--bd);border-radius:9px;
+  padding:10px 12px;display:flex;align-items:center;gap:10px;
+  margin-bottom:5px;
+}
+.escala-avatar{
+  width:34px;height:34px;border-radius:50%;
+  background:linear-gradient(135deg,var(--azul),var(--azul2));
+  color:#fff;font-weight:800;font-size:14px;
+  display:flex;align-items:center;justify-content:center;
+  flex-shrink:0;
+}
+.escala-nome{font-weight:700;font-size:14px;}
+.escala-func{
+  font-size:12px;color:var(--azul2);
+  background:var(--azul-claro);border-radius:6px;
+  padding:2px 8px;font-weight:600;
+  margin-top:2px;display:inline-block;
+}
+.tag-grupo{
+  font-size:11px;font-weight:700;color:#7c3aed;
+  background:#ede9fe;border-radius:6px;
+  padding:1px 7px;margin-left:4px;display:inline-block;
+  vertical-align:middle;
+}
+/* ── BOTÕES AÇÃO NA LISTA ── */
+.escala-acoes{
+  margin-left:auto;display:flex;gap:4px;flex-shrink:0;
+}
+.escala-del,.escala-edit{
+  background:transparent;border:none;
+  color:var(--muted);cursor:pointer;font-size:15px;padding:5px;
+  border-radius:6px;transition:color .15s,background .15s;
+}
+.escala-edit:hover{color:var(--azul2);background:var(--azul-claro);}
+.escala-del:hover{color:#c0392b;background:#fee2e2;}
+.escala-preview{background:transparent;border:none;color:var(--muted);cursor:pointer;font-size:15px;padding:5px;border-radius:6px;transition:color .15s,background .15s;}
+.escala-preview:hover{color:#7c3aed;background:#ede9fe;}
+
+/* ── MODAL PRÉVIA DA IMAGEM DE ANIVERSÁRIO ── */
+.modal-preview-box{
+  background:#fff;border-radius:16px;
+  padding:20px 20px 18px;
+  max-width:340px;width:90%;max-height:88vh;overflow-y:auto;
+  box-shadow:0 8px 40px rgba(10,20,50,.25);
+  transform:scale(.95);transition:transform .2s;
+  text-align:center;
+}
+.modal-overlay.on .modal-preview-box{transform:scale(1);}
+.preview-aniv-titulo{font-size:15px;font-weight:800;color:var(--azul);margin-bottom:12px;display:flex;align-items:center;gap:6px;justify-content:center;}
+.preview-aniv-loading{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;
+  padding:50px 10px;color:var(--muted);font-size:13px;font-weight:600;
+}
+.preview-aniv-spinner{
+  width:32px;height:32px;border-radius:50%;
+  border:3px solid var(--azul-claro);border-top-color:var(--azul);
+  animation:previewAnivSpin .8s linear infinite;
+}
+@keyframes previewAnivSpin{ to{ transform:rotate(360deg); } }
+.preview-aniv-imgwrap{
+  border-radius:12px;overflow:hidden;margin-bottom:14px;
+  background:var(--azul-claro);border:1px solid var(--bd);
+  max-height:50vh;display:flex;align-items:center;justify-content:center;
+}
+.preview-aniv-imgwrap img{width:100%;height:100%;object-fit:contain;display:block;}
+.preview-aniv-msg{
+  width:100%;font-family:'Segoe UI',Arial,sans-serif;
+  font-size:12.5px;color:#2a2a2a;line-height:1.55;text-align:left;
+  border:1.5px solid var(--bd);border-radius:9px;
+  padding:9px 11px;resize:vertical;min-height:110px;
+  background:var(--bg);margin-bottom:12px;box-sizing:border-box;
+}
+.preview-aniv-acoes{display:flex;gap:8px;flex-wrap:wrap;}
+.preview-aniv-acoes button{
+  flex:1;min-width:120px;border:none;border-radius:9px;
+  padding:10px 12px;font-size:12.5px;font-weight:700;cursor:pointer;
+  display:inline-flex;align-items:center;gap:6px;justify-content:center;
+  transition:background .15s;
+}
+.btn-preview-baixar{background:#7c3aed;color:#fff;}
+.btn-preview-baixar:hover{background:#6425d0;}
+.btn-preview-copiar{background:var(--azul-claro);color:var(--azul);}
+.btn-preview-copiar:hover{background:var(--bd);}
+.btn-preview-fechar{background:transparent;color:var(--muted);width:100%;margin-top:6px;padding:8px;flex:none;}
+.btn-preview-fechar:hover{background:var(--bg);}
+
+/* ── FORMULÁRIO ── */
+.form-card{
+  background:var(--branco);border-radius:var(--r);box-shadow:var(--sh);
+  padding:18px 16px;margin-bottom:14px;
+}
+.form-card.oculto{ display:none; }
+.form-titulo{
+  font-size:13px;font-weight:700;color:var(--azul);
+  margin-bottom:14px;display:flex;align-items:center;gap:7px;
+}
+.form-titulo .ico{font-size:18px;}
+.campo{margin-bottom:12px;}
+.campo label{
+  font-size:11px;font-weight:700;text-transform:uppercase;
+  letter-spacing:.5px;color:var(--muted);display:block;margin-bottom:4px;
+}
+.campo input,.campo select{
+  width:100%;padding:10px 12px;
+  border:1.5px solid var(--bd);border-radius:9px;
+  font-size:14px;font-family:inherit;
+  background:var(--bg);color:var(--tx);
+  transition:border-color .15s;outline:none;
+}
+.campo input:focus,.campo select:focus{border-color:var(--azul2);background:#fff;}
+.acoes{display:flex;gap:10px;margin-top:4px;flex-wrap:wrap;}
+.btn{
+  border:none;border-radius:9px;padding:11px 20px;
+  font-size:14px;font-weight:700;cursor:pointer;
+  display:inline-flex;align-items:center;gap:7px;
+  transition:background .17s,transform .12s;
+}
+.btn:active{transform:scale(.97);}
+.btn-add{background:var(--azul-claro);color:var(--azul);border:1.5px solid var(--bd);}
+.btn-add:hover{background:var(--bd);}
+.btn-salvar{background:var(--azul);color:#fff;flex:1;justify-content:center;}
+.btn-salvar:hover{background:var(--azul2);}
+.btn-cancelar-edit{
+  background:#fee2e2;color:#c0392b;border:1.5px solid #fca5a5;
+  padding:11px 16px;font-size:14px;
+}
+.btn-cancelar-edit:hover{background:#fca5a5;}
+
+/* ── FORM EDITANDO DESTAQUE ── */
+.form-card.editando{
+  border:2px solid var(--dourado);
+  box-shadow:0 0 0 3px rgba(201,168,76,.15);
+}
+.form-edit-badge{
+  display:inline-flex;align-items:center;gap:5px;
+  background:var(--dourado2);color:#7a5000;
+  border-radius:20px;padding:3px 11px;font-size:11px;font-weight:700;
+  margin-bottom:10px;
+}
+
+/* ── TOAST ── */
+.toast{
+  position:fixed;bottom:20px;left:50%;
+  transform:translateX(-50%) translateY(20px);
+  background:#222;color:#fff;padding:10px 22px;
+  border-radius:28px;font-size:13px;font-weight:700;
+  opacity:0;transition:opacity .3s,transform .3s;
+  pointer-events:none;z-index:9999;white-space:nowrap;
+}
+.toast.on{opacity:1;transform:translateX(-50%) translateY(0);}
+
+/* ── TOAST COM AÇÃO "DESFAZER" (exclusão de membro) ── */
+.toast-undo{
+  display:flex;align-items:center;gap:14px;
+  pointer-events:none;
+  padding:10px 12px 10px 20px;
+  white-space:nowrap;
+}
+.toast-undo.on{ pointer-events:auto; }
+.toast-undo-btn{
+  background:rgba(255,255,255,.14);color:#f0c040;border:none;
+  border-radius:20px;padding:7px 16px;
+  font-family:'Segoe UI',Arial,sans-serif;
+  font-size:12.5px;font-weight:800;cursor:pointer;
+  flex-shrink:0;transition:background .15s;
+}
+.toast-undo-btn:hover{ background:rgba(255,255,255,.26); }
+
+/* ── MODAL CONFIRMAÇÃO EXCLUSÃO ── */
+.modal-overlay{
+  position:fixed;inset:0;background:rgba(10,20,50,.45);
+  display:flex;align-items:center;justify-content:center;
+  z-index:10000;opacity:0;pointer-events:none;
+  transition:opacity .2s;
+}
+.modal-overlay.on{opacity:1;pointer-events:all;}
+.modal-box{
+  background:#fff;border-radius:16px;
+  padding:24px 22px 18px;
+  max-width:300px;width:90%;
+  box-shadow:0 8px 40px rgba(10,20,50,.25);
+  transform:scale(.95);transition:transform .2s;
+  text-align:center;
+}
+.modal-overlay.on .modal-box{transform:scale(1);}
+.modal-icon{font-size:34px;margin-bottom:8px;}
+.modal-titulo{font-size:16px;font-weight:800;color:var(--azul);margin-bottom:6px;}
+.modal-desc{font-size:13px;color:var(--muted);line-height:1.5;margin-bottom:18px;}
+.modal-acoes{display:flex;gap:10px;justify-content:center;}
+.btn-modal-confirmar{
+  background:#c0392b;color:#fff;border:none;
+  border-radius:9px;padding:10px 22px;font-size:14px;font-weight:700;cursor:pointer;
+  transition:background .15s;
+}
+.btn-modal-confirmar:hover{background:#a93226;}
+.btn-modal-cancelar{
+  background:var(--azul-claro);color:var(--azul);border:none;
+  border-radius:9px;padding:10px 22px;font-size:14px;font-weight:700;cursor:pointer;
+  transition:background .15s;
+}
+.btn-modal-cancelar:hover{background:var(--bd);}
+
+/* ── BOTÕES JSON ── */
+.json-acoes{
+  display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;
+}
+.btn-json{
+  flex:1;border:1.5px solid var(--bd);border-radius:9px;
+  padding:9px 14px;font-size:13px;font-weight:700;cursor:pointer;
+  display:inline-flex;align-items:center;gap:6px;justify-content:center;
+  transition:background .15s;background:var(--bg);color:var(--tx);
+  min-width:120px;
+}
+.btn-json:hover{background:var(--azul-claro);border-color:var(--azul2);color:var(--azul);}
+.json-acoes .btn-json{
+  display:inline-flex;align-items:center;justify-content:center;text-align:center;
+  font-family:'Segoe UI',Arial,sans-serif;
+  text-transform:none;letter-spacing:normal;font-size:13px;font-weight:700;
+  color:var(--tx);margin-bottom:0;
+}
+
+/* ── SPINNER PDF ── */
+@keyframes spin{to{transform:rotate(360deg);}}
+.pdf-spinner{
+  width:16px;height:16px;border:2.5px solid rgba(0,0,0,.2);
+  border-top-color:#1a2a00;border-radius:50%;
+  animation:spin .7s linear infinite;display:inline-block;flex-shrink:0;
+}
+
+/* ── RESPONSIVO ── */
+@media(max-width:400px){
+  .cal-dia{font-size:11px;border-radius:7px;}
+  .dia-num{font-size:11px;}
+  .acoes{flex-direction:column;}
+  .btn-salvar{width:100%;}
+  .json-acoes{flex-direction:column;}
+}
+
+/* ── PDF HIDDEN CONTENT ── */
+#pdf-conteudo{display:none;}
+@media print{
+  body>*{display:none!important;}
+  #pdf-conteudo{display:block!important;}
+}
+
+/* ── BTN PDF ── */
+.btn-pdf{
+  background:var(--dourado);color:#1a2a00;border:none;
+  border-radius:9px;padding:11px 20px;font-size:14px;font-weight:700;
+  cursor:pointer;display:inline-flex;align-items:center;gap:7px;
+  transition:background .17s,transform .12s;width:100%;justify-content:center;
+  margin-top:10px;
+}
+.btn-pdf:hover{background:var(--dourado2);}
+.btn-pdf:active{transform:scale(.97);}
+
+/* ── LINHA DE BOTÕES PDF/PNG ── */
+.btn-row-export{display:flex;gap:8px;margin-top:10px;}
+.btn-row-export .btn-pdf,.btn-row-export .btn-png{margin-top:0;}
+.btn-png{
+  background:var(--azul);color:#fff;border:none;
+  border-radius:9px;padding:11px 20px;font-size:14px;font-weight:700;
+  cursor:pointer;display:inline-flex;align-items:center;gap:7px;
+  transition:background .17s,transform .12s;width:100%;justify-content:center;
+}
+.btn-png:hover{background:var(--azul2);}
+.btn-png:active{transform:scale(.97);}
+@media(max-width:400px){
+  .btn-row-export{flex-direction:column;}
+}
+
+/* ── ESTILOS DO PDF ── */
+#pdf-conteudo{
+  font-family:'Segoe UI',Arial,sans-serif;
+  color:#1c2340;
+  padding:24px 28px;
+  background:#fff;
+}
+#pdf-conteudo .pdf-header{
+  text-align:center;
+  border-bottom:3px solid #1a3a6b;
+  padding-bottom:14px;
+  margin-bottom:20px;
+}
+#pdf-conteudo .pdf-titulo{
+  font-size:22px;font-weight:900;color:#1a3a6b;
+  letter-spacing:.5px;
+}
+#pdf-conteudo .pdf-subtitulo{
+  font-size:13px;color:#6b7a99;margin-top:3px;
+}
+#pdf-conteudo .pdf-mes{
+  font-size:16px;font-weight:800;color:#245199;
+  margin-bottom:16px;text-transform:capitalize;
+}
+#pdf-conteudo .pdf-grupo{
+  margin-bottom:14px;
+  border:1px solid #d0d9ee;
+  border-radius:10px;
+  overflow:hidden;
+}
+#pdf-conteudo .pdf-data-label{
+  background:#1a3a6b;color:#fff;
+  font-size:12px;font-weight:700;
+  padding:6px 14px;
+  letter-spacing:.3px;
+}
+#pdf-conteudo .pdf-item{
+  display:flex;align-items:center;gap:12px;
+  padding:8px 14px;
+  border-bottom:1px solid #e8f0fb;
+}
+#pdf-conteudo .pdf-item:last-child{border-bottom:none;}
+#pdf-conteudo .pdf-avatar{
+  width:30px;height:30px;border-radius:50%;
+  background:#1a3a6b;color:#fff;
+  font-weight:800;font-size:13px;
+  display:flex;align-items:center;justify-content:center;
+  flex-shrink:0;
+}
+#pdf-conteudo .pdf-nome{font-weight:700;font-size:13px;}
+#pdf-conteudo .pdf-func{
+  font-size:11px;color:#245199;
+  background:#e8f0fb;border-radius:5px;
+  padding:2px 8px;font-weight:600;
+  margin-top:2px;display:inline-block;
+}
+#pdf-conteudo .pdf-vazio{
+  text-align:center;padding:30px;font-size:13px;color:#6b7a99;
+}
+#pdf-conteudo .pdf-footer{
+  margin-top:22px;text-align:center;font-size:10px;color:#aaa;
+  border-top:1px solid #d0d9ee;padding-top:10px;
+}
+
+/* ── CALENDÁRIO NO PDF ── */
+#pdf-conteudo .pdf-cal-semana{
+  display:grid;grid-template-columns:repeat(7,1fr);
+  gap:3px;margin-bottom:3px;
+}
+#pdf-conteudo .pdf-cal-sem-label{
+  text-align:center;font-size:9px;font-weight:700;
+  color:#6b7a99;padding:3px 0;text-transform:uppercase;letter-spacing:.4px;
+}
+#pdf-conteudo .pdf-cal-sem-label.dom{color:#c0392b;}
+#pdf-conteudo .pdf-cal-grid{
+  display:grid;grid-template-columns:repeat(7,1fr);gap:3px;
+}
+#pdf-conteudo .pdf-cal-dia{
+  aspect-ratio:1;border-radius:7px;
+  display:flex;flex-direction:column;
+  align-items:center;justify-content:center;
+  font-size:11px;font-weight:600;
+  padding:2px 1px;gap:2px;
+  background:#f2f5fb;
+}
+#pdf-conteudo .pdf-cal-dia.vazio{background:transparent;}
+#pdf-conteudo .pdf-cal-dia.dom{color:#c0392b;}
+#pdf-conteudo .pdf-cal-dia.hoje{background:#1a3a6b;color:#fff;}
+#pdf-conteudo .pdf-cal-dia.tem-membro{background:#f0d080;color:#1a3a6b;}
+#pdf-conteudo .pdf-cal-dia.hoje.tem-membro{background:#c9a84c;color:#fff;}
+#pdf-conteudo .pdf-dia-num{font-size:11px;font-weight:700;line-height:1;}
+#pdf-conteudo .pdf-dia-dot{
+  display:flex;gap:2px;flex-wrap:wrap;justify-content:center;
+}
+#pdf-conteudo .pdf-dia-dot span{
+  width:4px;height:4px;border-radius:50%;background:#1a3a6b;display:block;
+}
+#pdf-conteudo .pdf-cal-dia.tem-membro .pdf-dia-dot span{background:#1a3a6b;}
+#pdf-conteudo .pdf-cal-dia.hoje .pdf-dia-dot span{background:#fff;}
+#pdf-conteudo .pdf-cal-dia.hoje.tem-membro .pdf-dia-dot span{background:#fff;}
+#pdf-conteudo .pdf-secao-titulo{
+  font-size:11px;font-weight:700;text-transform:uppercase;
+  letter-spacing:.7px;color:#6b7a99;
+  margin:16px 0 8px;padding-bottom:5px;
+  border-bottom:2px solid #d0d9ee;
+}
+
+#pdf-render-area{position:fixed;left:-9999px;top:0;width:794px;background:#fff;font-family:'Segoe UI',Arial,sans-serif;color:#1c2340;padding:20px 24px 16px;z-index:-1;}
+#pdf-render-area .pdf-header{text-align:center;border-bottom:3px solid #1a3a6b;padding-bottom:10px;margin-bottom:12px;}
+#pdf-render-area .pdf-titulo{font-size:20px;font-weight:900;color:#1a3a6b;letter-spacing:.5px;}
+#pdf-render-area .pdf-subtitulo{font-size:12px;color:#6b7a99;margin-top:2px;}
+#pdf-render-area .pdf-mes{font-size:20px;font-weight:800;color:#245199;margin-bottom:10px;text-transform:capitalize;text-align:center;}
+#pdf-render-area .pdf-secao-titulo{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:#6b7a99;margin:12px 0 6px;padding-bottom:4px;border-bottom:2px solid #d0d9ee;}
+#pdf-render-area .pdf-footer{margin-top:10px;text-align:center;font-size:9px;color:#aaa;border-top:1px solid #d0d9ee;padding-top:6px;}
+#pdf-render-area .pdf-cal-semana{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;margin-bottom:2px;}
+#pdf-render-area .pdf-cal-sem-label{text-align:center;font-size:14px;font-weight:700;color:#6b7a99;padding:2px 0;text-transform:uppercase;letter-spacing:.4px;}
+#pdf-render-area .pdf-cal-sem-label.dom{color:#c0392b;}
+#pdf-render-area .pdf-cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;}
+#pdf-render-area .pdf-cal-dia{aspect-ratio:1;border-radius:5px;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:10px;font-weight:600;padding:1px;gap:1px;background:#f2f5fb;}
+#pdf-render-area .pdf-cal-dia.vazio{background:transparent;}
+#pdf-render-area .pdf-cal-dia.dom{color:#c0392b;}
+#pdf-render-area .pdf-cal-dia.hoje{background:#1a3a6b;color:#fff;}
+#pdf-render-area .pdf-cal-dia.tem-membro{background:#f0d080;color:#1a3a6b;}
+#pdf-render-area .pdf-cal-dia.hoje.tem-membro{background:#c9a84c;color:#fff;}
+#pdf-render-area .pdf-dia-num{font-size:21px;font-weight:700;line-height:1;}
+#pdf-render-area .pdf-dia-dot{display:flex;gap:2px;flex-wrap:wrap;justify-content:center;}
+#pdf-render-area .pdf-dia-dot span{width:3px;height:3px;border-radius:50%;background:#1a3a6b;display:block;}
+#pdf-render-area .pdf-cal-dia.tem-membro .pdf-dia-dot span{background:#1a3a6b;}
+#pdf-render-area .pdf-cal-dia.hoje .pdf-dia-dot span{background:#fff;}
+#pdf-render-area .pdf-lista-colunas{display:grid;gap:6px;}
+#pdf-render-area .pdf-grupo{border:1px solid #d0d9ee;border-radius:7px;overflow:hidden;}
+#pdf-render-area .pdf-data-label{background:#1a3a6b;color:#fff;font-size:10px;font-weight:700;padding:4px 10px;letter-spacing:.3px;}
+#pdf-render-area .pdf-item{display:flex;align-items:center;gap:8px;padding:5px 10px;border-bottom:1px solid #e8f0fb;background:#fff;}
+#pdf-render-area .pdf-item:last-child{border-bottom:none;}
+#pdf-render-area .pdf-avatar{width:22px;height:22px;border-radius:50%;background:#1a3a6b;color:#fff;font-weight:800;font-size:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+#pdf-render-area .pdf-nome{font-weight:700;font-size:11px;line-height:1.2;}
+#pdf-render-area .pdf-func{font-size:9px;color:#245199;background:#e8f0fb;border-radius:4px;padding:1px 6px;font-weight:600;margin-top:1px;display:inline-block;}
+#pdf-render-area .pdf-vazio{text-align:center;padding:20px;font-size:12px;color:#6b7a99;}
+
+
+</style>
+</head>
+<body>
+
+<!-- Aviso temporário (some sozinho) de aniversários próximos: hoje, amanhã ou em poucos dias -->
+<div id="avisoProximoAniversario"></div>
+
+<div class="tabbar">
+  <div class="tabbar-logo" id="tabbarLogoWrap" onclick="document.getElementById('inputLogoIgreja').click()" title="Logo da igreja — toque para alterar">
+    <div class="tabbar-logo-img" id="tabbarLogoImg">⛪</div>
+    <button type="button" class="tabbar-logo-remove" id="btnRemoverLogoIgreja" style="display:none;" onclick="removerLogoIgreja(event)" title="Remover logo">×</button>
+  </div>
+  <input type="file" accept="image/*" id="inputLogoIgreja" style="display:none;" onchange="selecionarLogoIgreja(this)">
+  <button class="tabbtn active" id="tabbtn-membros" onclick="mostrarAba('membros')">
+    <span class="tab-ico">🎂</span> Membros
+  </button>
+  <button class="tabbtn" id="tabbtn-config" onclick="mostrarAba('config')">
+    <span class="tab-ico">⚙️</span> Config.
+  </button>
+</div>
+
+<div id="aniversarioBanner"></div>
+
+<!-- Área de renderização do cartão de aniversário — fica no nível do <body>
+     (fora das abas) para nunca ficar oculta por display:none ao trocar de aba -->
+<div id="aniv-render-area"></div>
+
+<!-- MODAL DE AVISO / ERRO (substitui alertas nativos) -->
+<div class="modal-overlay" id="modalAviso">
+  <div class="modal-box">
+    <div class="modal-icon" id="modalAvisoIcon">⚠️</div>
+    <div class="modal-titulo" id="modalAvisoTitulo">Aviso</div>
+    <div class="modal-desc" id="modalAvisoDesc"></div>
+    <div class="modal-acoes">
+      <button class="btn-modal-confirmar" style="background:var(--azul,#1a3a6b);" onclick="fecharModalAviso()">Entendi</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL EDITOR DE ENQUADRAMENTO DA FOTO -->
+<div class="modal-overlay" id="modalCropFoto">
+  <div class="modal-box crop-modal-box">
+    <div class="modal-titulo">🖼️ Ajustar enquadramento</div>
+    <div class="modal-desc">Escolha o formato da moldura, arraste a foto para posicionar e use o controle para aproximar.</div>
+
+    <div class="crop-moldura-opcoes" id="cropMolduraOpcoes">
+      <button type="button" class="crop-moldura-btn" data-moldura="quadrado" onclick="selecionarMolduraCrop('quadrado')">
+        <span class="crop-moldura-ico moldura-quadrado"></span>Quadrado
+      </button>
+      <button type="button" class="crop-moldura-btn" data-moldura="retangulo" onclick="selecionarMolduraCrop('retangulo')">
+        <span class="crop-moldura-ico moldura-retangulo"></span>Retângulo
+      </button>
+      <button type="button" class="crop-moldura-btn" data-moldura="redondo" onclick="selecionarMolduraCrop('redondo')">
+        <span class="crop-moldura-ico moldura-redondo"></span>Redondo
+      </button>
+      <button type="button" class="crop-moldura-btn" data-moldura="retrato" onclick="selecionarMolduraCrop('retrato')">
+        <span class="crop-moldura-ico moldura-retrato"></span>Retrato
+      </button>
+      <button type="button" class="crop-moldura-btn" data-moldura="paisagem" onclick="selecionarMolduraCrop('paisagem')">
+        <span class="crop-moldura-ico moldura-paisagem"></span>Paisagem
+      </button>
+    </div>
+
+    <div class="crop-stage" id="cropStage">
+      <img id="cropImg" src="" alt="" draggable="false">
+    </div>
+    <div class="crop-zoom-row">
+      <span>🔍</span>
+      <input type="range" id="cropZoomSlider" min="100" max="300" value="100" oninput="onCropZoomInput(this.value)">
+    </div>
+    <div class="crop-dica">Dica: deixe o rosto centralizado na área destacada.</div>
+    <div class="modal-acoes" style="margin-top:14px;">
+      <button class="btn-modal-cancelar" onclick="fecharModalCropFoto(false)">Cancelar</button>
+      <button class="btn-modal-confirmar" style="background:var(--azul,#1a3a6b);" onclick="fecharModalCropFoto(true)">✔ Usar esta foto</button>
+    </div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+<div class="toast toast-undo" id="toastUndo">
+  <span id="toastUndoMsg"></span>
+  <button type="button" class="toast-undo-btn" onclick="desfazerExclusaoMembro()">Desfazer</button>
+</div>
+
+<div id="tab-membros" class="tab-panel active">
+
+<header>
+  <span class="header-icon">🎂</span>
+  <div>
+    <h1>Membros</h1>
+    <p>ICB Murici — Aniversariantes</p>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <div class="cal-card">
+    <div class="lista-titulo"><span class="dot"></span> Aniversariantes do mês</div>
+    <div id="membrosMesLista"></div>
+  </div>
+
+  <button type="button" class="btn btn-add" id="btnAbrirFormMembro" onclick="abrirFormAdicionarMembro()" style="width:100%;justify-content:center;margin-bottom:14px;">➕ Adicionar membro</button>
+
+  <div class="form-card oculto" id="membroFormCard">
+    <div class="form-titulo"><span class="ico">🎂</span> <span id="membroFormTitulo">Adicionar membro</span></div>
+    <div id="membroEditBadge" style="display:none;" class="form-edit-badge">✏️ Editando registro</div>
+
+    <div class="campo">
+      <label>📸 Foto (opcional)</label>
+      <input type="file" accept="image/*" id="inputFotoMembro" style="display:none;" onchange="selecionarFotoMembro(this)">
+      <div class="foto-preview-wrap">
+        <div class="foto-preview" id="fotoPreviewMembro">👤</div>
+        <div class="foto-upload-botoes">
+          <label class="btn-upload-foto" for="inputFotoMembro">📷 Escolher foto</label>
+          <button type="button" class="btn-ajustar-foto" id="btnAjustarFotoMembro" style="display:none;" onclick="abrirEditorCropFoto(fotoAtualBase64, cropAtualMembro, molduraAtualMembro)">🔧 Ajustar enquadramento</button>
+          <button type="button" class="btn-remover-foto" id="btnRemoverFotoMembro" style="display:none;" onclick="removerFotoMembro()">🗑 Remover foto</button>
+        </div>
+      </div>
+    </div>
+    <div class="campo">
+      <label>👤 Nome</label>
+      <input type="text" id="inputNomeMembro" placeholder="Nome do membro">
+    </div>
+    <div class="campo">
+      <label>⚧ Sexo</label>
+      <select id="inputSexoMembro">
+        <option value="F">Feminino</option>
+        <option value="M">Masculino</option>
+      </select>
+    </div>
+    <div class="campo">
+      <label>🎂 Data de nascimento</label>
+      <input type="text" id="inputNascimentoMembro" placeholder="dd/mm/aaaa (ano é opcional)" maxlength="10" inputmode="numeric" oninput="formatarDataMembro(this)">
+    </div>
+    <div class="campo">
+      <label>🧒 Categoria</label>
+      <select id="inputGrupoMembro">
+        <option value="">Nenhuma (adulto)</option>
+        <option value="kids">Kids</option>
+        <option value="teens">Teens</option>
+      </select>
+    </div>
+
+    <div class="acoes">
+      <button class="btn btn-salvar" onclick="salvarMembroPessoa()">💾 <span id="btnSalvarMembroTexto">Salvar</span></button>
+      <button class="btn btn-cancelar-edit" id="btnCancelarMembro" onclick="cancelarEdicaoMembro()">✕ Cancelar</button>
+    </div>
+  </div>
+
+  <div class="lista-titulo"><span class="dot"></span> Todos os membros</div>
+
+  <div class="membros-filtros">
+    <div class="membros-busca-wrap">
+      <span class="ico-busca">🔎</span>
+      <input type="text" id="inputBuscaMembro" placeholder="Buscar membro pelo nome..." oninput="filtrarMembrosBusca(this.value)">
+      <button type="button" class="btn-limpar-busca" id="btnLimparBuscaMembro" style="display:none;" onclick="limparBuscaMembro()" title="Limpar busca">✕</button>
+    </div>
+    <div class="membros-select-wrap">
+      <select id="selectFiltroCategoriaMembro" onchange="filtrarCategoriaMembro(this.value)" title="Filtrar por categoria">
+        <option value="">Todas categorias</option>
+        <option value="kids">Kids</option>
+        <option value="teens">Teens</option>
+        <option value="adulto">Adultos</option>
+      </select>
+    </div>
+    <div class="membros-select-wrap">
+      <select id="selectOrdenacaoMembro" onchange="mudarOrdenacaoMembro(this.value)" title="Ordenar por">
+        <option value="nome">Nome (A-Z)</option>
+        <option value="proximoAniversario">Próximo aniversário</option>
+        <option value="cadastro">Data de cadastro</option>
+      </select>
+    </div>
+    <div class="membros-por-pagina">
+      <select id="selectMembrosPorPagina" onchange="mudarMembrosPorPagina(this.value)">
+        <option value="10">10 por página</option>
+        <option value="20">20 por página</option>
+        <option value="30">30 por página</option>
+        <option value="40">40 por página</option>
+        <option value="50">50 por página</option>
+        <option value="9999">Todos</option>
+      </select>
+    </div>
+  </div>
+
+  <div id="membrosLista"></div>
+  <div id="membrosPaginacao"></div>
+
+</div>
+</div>
+<div id="tab-config" class="tab-panel">
+
+<header>
+  <h1>⚙️ Configurações</h1>
+  <p class="sub">Fundos dos cartões de aniversário e backup dos dados</p>
+</header>
+
+<div class="card">
+  <div class="lista-titulo"><span class="dot"></span> Fundos dos cartões por categoria</div>
+  <div class="crop-dica" style="margin-bottom:10px;">
+    Escolha uma imagem de fundo para cada categoria de membro aniversariante.
+    Se nenhuma imagem for enviada, o fundo padrão do painel é usado.
+  </div>
+
+  <div id="fundosCartaoLista"></div>
+</div>
+
+<div class="card" style="margin-top:14px;">
+  <div class="lista-titulo" style="justify-content:center;"><span class="dot"></span> Backup completo</div>
+
+  <!-- Exportar / Importar JSON — mesmo backup completo do app -->
+  <div class="json-acoes">
+    <button class="btn-json" onclick="exportarJSON()">📤 Exportar backup</button>
+    <label class="btn-json" style="cursor:pointer;">
+      📥 Importar backup
+      <input type="file" accept=".json" id="inputImportJSONMembros" style="display:none;" onchange="importarJSON(this)">
+    </label>
+  </div>
+  <div class="crop-dica" style="margin-top:6px;">O backup inclui a escala, os membros, as fotos, a logo da igreja e os fundos dos cartões.</div>
+</div>
+
+</div>
+
+<!-- MODAL CONFIRMAÇÃO EXCLUSÃO — MEMBROS -->
+<div class="modal-overlay" id="modalExcluirMembro">
+  <div class="modal-box">
+    <div class="modal-icon">🗑</div>
+    <div class="modal-titulo">Remover membro?</div>
+    <div class="modal-desc">Tem certeza que deseja remover este membro? Esta ação não pode ser desfeita.</div>
+    <div class="modal-acoes">
+      <button class="btn-modal-cancelar" onclick="fecharModalMembro()">Cancelar</button>
+      <button class="btn-modal-confirmar" onclick="confirmarExclusaoMembro()">Remover</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL PRÉVIA DA IMAGEM DE ANIVERSÁRIO -->
+<div class="modal-overlay" id="modalPreviewAniv">
+  <div class="modal-preview-box">
+    <div class="preview-aniv-titulo">🎂 Prévia — <span id="previewAnivNome"></span></div>
+
+    <div class="preview-aniv-loading" id="previewAnivLoading">
+      <div class="preview-aniv-spinner"></div>
+      <div>Gerando prévia da imagem...</div>
+    </div>
+
+    <div id="previewAnivConteudo" style="display:none;">
+      <div class="preview-aniv-imgwrap">
+        <img id="previewAnivImg" src="" alt="Prévia do cartão de aniversário">
+      </div>
+      <textarea class="preview-aniv-msg" id="previewAnivMsg" readonly></textarea>
+      <div class="preview-aniv-acoes">
+        <button class="btn-preview-baixar" onclick="baixarImagemPreviewAniv()">⬇️ Baixar imagem</button>
+        <button class="btn-preview-copiar" onclick="copiarMensagemPreviewAniv()">📋 Copiar mensagem</button>
+      </div>
+      <button class="btn-preview-fechar" onclick="fecharModalPreviewAniv()">Fechar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// escH e mostrarToast — utilitários compartilhados (usados por membros/config)
+function escH(s) { return String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+// Remove acentos e caixa para permitir busca "Joao" encontrar "João", por exemplo.
+function normalizarTexto(s) {
+  return String(s||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().trim();
+}
+// Remove espaços duplicados entre palavras e espaços nas pontas do nome, sem
+// alterar a grafia (acentos/maiúsculas) — usado ao salvar/editar um membro.
+// Ex.: "  João   Silva  " -> "João Silva"
+function normalizarNomeMembro(nome) {
+  return String(nome || "").replace(/\s+/g, " ").trim();
+}
+// Verifica se já existe outro membro cadastrado com o mesmo nome (ignorando
+// acentos/maiúsculas) e a mesma data de nascimento. `idIgnorar` é o id do
+// membro em edição (para não comparar o cadastro consigo mesmo).
+function existeMembroDuplicado(nome, nascimento, idIgnorar) {
+  const nomeNorm = normalizarTexto(nome);
+  return loadMembros().some(function(m) {
+    if (idIgnorar !== null && idIgnorar !== undefined && m.id === idIgnorar) return false;
+    return normalizarTexto(m.nome) === nomeNorm && String(m.nascimento || "") === String(nascimento || "");
+  });
+}
+let toastTimer;
+function mostrarToast(msg) {
+  const t = document.getElementById("toast");
+  t.textContent = msg;
+  t.classList.add("on");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove("on"), 2800);
+}
+
+// ══════════════════ BACKUP (apenas membros, logo e fundos dos cartões) ══════════════════
+function coletarBackupCompleto() {
+  const fundosCartao = {};
+  CATEGORIAS_FUNDO.forEach(function(cat) {
+    const f = loadFundoCartao(cat.chave);
+    if (f) fundosCartao[cat.chave] = f;
+  });
+  return {
+    versao: 3,
+    geradoEm: new Date().toISOString(),
+    membros: loadMembros(),
+    logoIgreja: (typeof loadLogoIgreja === 'function') ? loadLogoIgreja() : null,
+    fundosCartao: fundosCartao
+  };
+}
+
+function exportarJSON() {
+  const backup = coletarBackupCompleto();
+  const temFundos = backup.fundosCartao && Object.keys(backup.fundosCartao).length > 0;
+  const semDados = !backup.membros.length && !backup.logoIgreja && !temFundos;
+  if (semDados) { mostrarToast("⚠️ Nenhum dado para exportar."); return; }
+  const blob = new Blob([JSON.stringify(backup, null, 2)], { type: "application/json" });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement("a");
+  const data = new Date().toLocaleDateString("pt-BR").replace(/\//g,"-");
+  a.href     = url;
+  a.download = "ICB_Murici_backup_membros_" + data + ".json";
+  a.click();
+  URL.revokeObjectURL(url);
+  mostrarToast("📤 Backup exportado!");
+}
+
+function importarJSON(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const dados = JSON.parse(e.target.result);
+      let membrosImportados = [];
+      let logoImportada = null;
+      let fundosImportados = {};
+      if (dados && typeof dados === 'object' && !Array.isArray(dados)) {
+        membrosImportados = Array.isArray(dados.membros) ? dados.membros : [];
+        logoImportada = dados.logoIgreja || null;
+        fundosImportados = (dados.fundosCartao && typeof dados.fundosCartao === 'object') ? dados.fundosCartao : {};
+      } else {
+        throw new Error("Formato inválido");
+      }
+
+      let membrosAdicionados = 0;
+      let erroMembrosPorEspaco = false;
+      const membrosAtuais = loadMembros();
+      const idsMembrosAtuais = new Set(membrosAtuais.map(x => x.id));
+      const membrosParaSalvar = membrosAtuais.slice();
+      membrosImportados.forEach(item => {
+        if (item && item.id && item.nome && item.nascimento && !idsMembrosAtuais.has(item.id)) {
+          membrosParaSalvar.push(item);
+          membrosAdicionados++;
+        }
+      });
+      try {
+        saveMembros(membrosParaSalvar);
+      } catch (errSave) {
+        console.error("Falha ao salvar membros importados:", errSave);
+        erroMembrosPorEspaco = true;
+        membrosAdicionados = 0;
+      }
+
+      let logoAplicada = false;
+      if (logoImportada && typeof loadLogoIgreja === 'function' && !loadLogoIgreja()) {
+        salvarLogoIgreja(logoImportada);
+        logoAplicada = true;
+      }
+
+      let fundosAplicados = 0;
+      Object.keys(fundosImportados).forEach(function(categoriaClasse) {
+        const dataURL = fundosImportados[categoriaClasse];
+        if (dataURL && !loadFundoCartao(categoriaClasse)) {
+          salvarFundoCartao(categoriaClasse, dataURL);
+          fundosAplicados++;
+        }
+      });
+
+      renderMembrosLista();
+      renderMembrosDoMes();
+      popularDatalistMembros();
+      mostrarBannerAniversario();
+      atualizarLogoIgrejaUI();
+      renderFundosCartaoConfig();
+
+      const partes = [];
+      if (membrosAdicionados) partes.push(membrosAdicionados + " membro(s)");
+      if (logoAplicada) partes.push("a logo da igreja");
+      if (fundosAplicados) partes.push(fundosAplicados + " fundo(s) de cartão");
+      const resumo = partes.length ? partes.join(", ") : "nenhum item novo";
+
+      if (erroMembrosPorEspaco) {
+        mostrarModalAviso(
+          'Membros não puderam ser salvos',
+          'O arquivo tinha ' + membrosImportados.length + ' membro(s), mas o navegador recusou salvar (provavelmente por falta de espaço, já que as fotos ocupam bastante). Tente remover fotos grandes ou liberar espaço e importe novamente.',
+          '⚠️'
+        );
+      } else {
+        mostrarToast("📥 Importado: " + resumo + "!");
+      }
+    } catch(err) {
+      mostrarModalAviso('Arquivo inválido', 'Não foi possível importar este backup. Verifique se o arquivo é um backup exportado por este painel.', '❌');
+      console.error(err);
+    }
+    input.value = "";
+  };
+  reader.readAsText(file);
+}
+
+// ═══════════════════════════════════════════════════════════
+// ABAS + ABA MEMBROS + NOTIFICAÇÃO DE ANIVERSÁRIO — novo
+// ═══════════════════════════════════════════════════════════
+
+// ══════════════════ ABAS ══════════════════
+function mostrarAba(nome) {
+  ['membros','config'].forEach(function(n){
+    document.getElementById('tab-' + n).classList.toggle('active', n === nome);
+    document.getElementById('tabbtn-' + n).classList.toggle('active', n === nome);
+  });
+}
+
+// ══════════════════ MEMBROS — STORAGE ══════════════════
+const CHAVE_MEMBROS = 'icb_membros';
+let idEditandoMembro = null;
+let idParaExcluirMembro = null;
+let buscaMembrosTexto = "";
+let filtroCategoriaMembros = ""; // "" = todas, "kids", "teens", "adulto"
+let ordenacaoMembros = "nome";   // "nome", "proximoAniversario", "cadastro"
+let membrosPorPagina = 10;
+let paginaMembrosAtual = 1;
+
+function loadMembros() {
+  try { return JSON.parse(localStorage.getItem(CHAVE_MEMBROS) || "[]"); } catch(e) { return []; }
+}
+function saveMembros(d) { localStorage.setItem(CHAVE_MEMBROS, JSON.stringify(d)); }
+
+// ══════════════════ FOTO DO MEMBRO — SELEÇÃO, RECORTE E REDIMENSIONAMENTO ══════════════════
+let fotoAtualBase64 = null;                      // foto original (redimensionada, sem recorte) selecionada no formulário
+let cropAtualMembro = { zoom: 1, ox: 0.5, oy: 0.5 }; // enquadramento manual (aplicado só ao gerar o cartão/avatar)
+
+// ══════════════════ MOLDURAS — FORMATOS DE ENQUADRAMENTO DA FOTO ══════════════════
+// Cada formato define a proporção (largura:altura) usada tanto na prévia do
+// recorte quanto em todos os lugares onde a foto do membro é exibida depois
+// (lista, aniversariantes do mês, banner do dia etc.), garantindo consistência.
+const MOLDURAS = {
+  quadrado:  { label: "Quadrado",            ratioW: 1,  ratioH: 1  },
+  retangulo: { label: "Retângulo",           ratioW: 5,  ratioH: 4  },
+  redondo:   { label: "Redondo",             ratioW: 1,  ratioH: 1  },
+  retrato:   { label: "Retrato (vertical)",  ratioW: 3,  ratioH: 4  },
+  paisagem:  { label: "Paisagem (horizontal)", ratioW: 16, ratioH: 9 }
+};
+const MOLDURA_PADRAO = "redondo";
+let molduraAtualMembro = MOLDURA_PADRAO; // formato escolhido/confirmado no formulário atual
+
+// Retorna a classe CSS correspondente ao formato (cai no padrão se desconhecido/ausente).
+function classeMoldura(chave) {
+  const chaveValida = MOLDURAS[chave] ? chave : MOLDURA_PADRAO;
+  return "moldura-" + chaveValida;
+}
+
+// Calcula dimensões de saída (em px) que respeitam a proporção da moldura,
+// mantendo o maior lado igual a `maior`. Usado para gerar o recorte da prévia.
+function dimensoesParaMoldura(chave, maior) {
+  const info = MOLDURAS[chave] || MOLDURAS[MOLDURA_PADRAO];
+  const base = maior || 240;
+  if (info.ratioW >= info.ratioH) {
+    return { w: base, h: Math.round(base * info.ratioH / info.ratioW) };
+  }
+  return { w: Math.round(base * info.ratioW / info.ratioH), h: base };
+}
+
+// Proporção exata da área de foto no cartão gerado (moldura menos o padding interno)
+const CARTAO_FOTO_RATIO_W = 872;
+const CARTAO_FOTO_RATIO_H = 728;
+
+// Calcula, para uma moldura (formato) escolhida no cadastro do membro, o maior
+// retângulo com aquela proporção que cabe dentro da caixa de foto do cartão
+// (sem esticar). Assim o cartão respeita o mesmo formato/proporção que o
+// usuário usou ao ajustar o recorte da foto, evitando enquadramento diferente
+// do que foi definido no editor.
+function dimensoesMolduraNaCaixa(chave, maxW, maxH) {
+  const info = MOLDURAS[chave] || MOLDURAS[MOLDURA_PADRAO];
+  const escala = Math.min(maxW / info.ratioW, maxH / info.ratioH);
+  return { w: Math.round(info.ratioW * escala), h: Math.round(info.ratioH * escala) };
+}
+
+function selecionarFotoMembro(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const img = new Image();
+    img.onload = function() {
+      // Redimensiona para no máximo 1400px no lado maior — mantém boa qualidade
+      // para o recorte manual sem pesar demais no localStorage.
+      const MAX = 1400;
+      let w = img.width, h = img.height;
+      if (w > h && w > MAX) { h = Math.round(h * (MAX / w)); w = MAX; }
+      else if (h >= w && h > MAX) { w = Math.round(w * (MAX / h)); h = MAX; }
+      const canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      fotoAtualBase64 = canvas.toDataURL('image/jpeg', 0.88);
+      cropAtualMembro = { zoom: 1, ox: 0.5, oy: 0.5 };
+      molduraAtualMembro = molduraAtualMembro || MOLDURA_PADRAO;
+      atualizarPreviewFotoMembro();
+      input.value = "";
+      // Abre o editor de enquadramento automaticamente para o usuário ajustar
+      // a posição/zoom/moldura antes que a foto fique esticada no cartão.
+      abrirEditorCropFoto(fotoAtualBase64, cropAtualMembro, molduraAtualMembro);
+    };
+    img.onerror = function() {
+      mostrarModalAviso('Não foi possível abrir a foto', 'O arquivo selecionado não pôde ser lido. Tente escolher outra imagem.', '❌');
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+function removerFotoMembro() {
+  fotoAtualBase64 = null;
+  cropAtualMembro = { zoom: 1, ox: 0.5, oy: 0.5 };
+  molduraAtualMembro = MOLDURA_PADRAO;
+  document.getElementById('inputFotoMembro').value = "";
+  atualizarPreviewFotoMembro();
+}
+
+function atualizarPreviewFotoMembro() {
+  const wrap = document.getElementById('fotoPreviewMembro');
+  const btnRemover = document.getElementById('btnRemoverFotoMembro');
+  const btnAjustar = document.getElementById('btnAjustarFotoMembro');
+  wrap.className = 'foto-preview ' + classeMoldura(molduraAtualMembro);
+  if (fotoAtualBase64) {
+    btnRemover.style.display = 'inline-flex';
+    btnAjustar.style.display = 'inline-flex';
+    const dims = dimensoesParaMoldura(molduraAtualMembro, 240);
+    gerarRecorteFoto(fotoAtualBase64, cropAtualMembro, dims.w, dims.h).then(function(dataURL){
+      wrap.innerHTML = dataURL ? '<img src="' + dataURL + '" alt="Foto">' : '<img src="' + fotoAtualBase64 + '" alt="Foto">';
+    }).catch(function(){
+      wrap.innerHTML = '<img src="' + fotoAtualBase64 + '" alt="Foto">';
+    });
+  } else {
+    wrap.innerHTML = '👤';
+    btnRemover.style.display = 'none';
+    btnAjustar.style.display = 'none';
+  }
+}
+
+// ══════════════════ RECORTE DE IMAGEM (evita foto esticada no html2canvas) ══════════════════
+// Gera uma imagem já pré-recortada (dataURL) nas dimensões exatas de destino,
+// aplicando o enquadramento manual (zoom/posição). Como o resultado já sai com
+// a proporção certa, não é preciso depender de object-fit (que o html2canvas
+// nem sempre respeita corretamente, causando fotos esticadas/distorcidas).
+function gerarRecorteFoto(fotoSrc, crop, outW, outH) {
+  return new Promise(function(resolve, reject){
+    if (!fotoSrc) { resolve(null); return; }
+    const img = new Image();
+    img.onload = function() {
+      try {
+        const iw = img.naturalWidth || img.width, ih = img.naturalHeight || img.height;
+        const zoom = (crop && crop.zoom) || 1;
+        const ox = (crop && crop.ox != null) ? crop.ox : 0.5;
+        const oy = (crop && crop.oy != null) ? crop.oy : 0.5;
+        const baseScale = Math.max(outW / iw, outH / ih);
+        const scale = baseScale * zoom;
+        const dispW = iw * scale, dispH = ih * scale;
+        const rangeX = Math.max(0, dispW - outW), rangeY = Math.max(0, dispH - outH);
+        const translateX = -ox * rangeX, translateY = -oy * rangeY;
+        const sx = -translateX / scale, sy = -translateY / scale;
+        const sw = outW / scale, sh = outH / scale;
+        const canvas = document.createElement('canvas');
+        canvas.width = outW; canvas.height = outH;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, sx, sy, sw, sh, 0, 0, outW, outH);
+        resolve(canvas.toDataURL('image/jpeg', 0.92));
+      } catch (err) { reject(err); }
+    };
+    img.onerror = function(){ reject(new Error('Falha ao carregar imagem para recorte')); };
+    img.src = fotoSrc;
+  });
+}
+
+// ══════════════════ EDITOR DE ENQUADRAMENTO (arrastar + zoom + moldura) ══════════════════
+const cropState = { iw:0, ih:0, zoom:1, ox:0.5, oy:0.5, moldura: MOLDURA_PADRAO, dragging:false, startX:0, startY:0, startOx:0.5, startOy:0.5, stageW:0, stageH:0 };
+let cropStageEl = null, cropImgEl = null, cropListenersAtivos = false;
+
+function abrirEditorCropFoto(fotoSrc, cropExistente, molduraExistente) {
+  if (!fotoSrc) { mostrarToast('⚠️ Escolha uma foto primeiro.'); return; }
+  cropImgEl = document.getElementById('cropImg');
+  cropStageEl = document.getElementById('cropStage');
+  cropState.zoom = (cropExistente && cropExistente.zoom) || 1;
+  cropState.ox = (cropExistente && cropExistente.ox != null) ? cropExistente.ox : 0.5;
+  cropState.oy = (cropExistente && cropExistente.oy != null) ? cropExistente.oy : 0.5;
+  cropState.moldura = (molduraExistente && MOLDURAS[molduraExistente]) ? molduraExistente : MOLDURA_PADRAO;
+  document.getElementById('cropZoomSlider').value = Math.round(cropState.zoom * 100);
+  aplicarMolduraNoStage();
+  marcarBotaoMolduraAtivo();
+  cropImgEl.onload = function() {
+    cropState.iw = cropImgEl.naturalWidth;
+    cropState.ih = cropImgEl.naturalHeight;
+    aplicarTransformCrop();
+  };
+  cropImgEl.src = fotoSrc;
+  document.getElementById('modalCropFoto').classList.add('on');
+  ativarListenersCrop();
+  // Caso a imagem já esteja em cache (evento load pode não disparar de novo)
+  if (cropImgEl.complete && cropImgEl.naturalWidth) {
+    cropState.iw = cropImgEl.naturalWidth;
+    cropState.ih = cropImgEl.naturalHeight;
+    aplicarTransformCrop();
+  }
+}
+
+function fecharModalCropFoto(confirmar) {
+  document.getElementById('modalCropFoto').classList.remove('on');
+  if (confirmar) {
+    cropAtualMembro = { zoom: cropState.zoom, ox: cropState.ox, oy: cropState.oy };
+    molduraAtualMembro = cropState.moldura;
+    atualizarPreviewFotoMembro();
+  }
+}
+
+// Escolhe o formato de moldura durante o recorte — atualiza a prévia em tempo
+// real (o próprio "palco" do recorte muda de proporção/formato na hora) e
+// reposiciona a foto para preencher corretamente a nova área.
+function selecionarMolduraCrop(chave) {
+  if (!MOLDURAS[chave]) return;
+  cropState.moldura = chave;
+  aplicarMolduraNoStage();
+  marcarBotaoMolduraAtivo();
+}
+
+function aplicarMolduraNoStage() {
+  if (!cropStageEl) return;
+  const info = MOLDURAS[cropState.moldura] || MOLDURAS[MOLDURA_PADRAO];
+  cropStageEl.style.aspectRatio = info.ratioW + ' / ' + info.ratioH;
+  cropStageEl.style.borderRadius = cropState.moldura === 'redondo' ? '50%' : '10px';
+  // A área mudou de proporção — recalcula a posição/escala da foto dentro dela.
+  aplicarTransformCrop();
+}
+
+function marcarBotaoMolduraAtivo() {
+  const botoes = document.querySelectorAll('.crop-moldura-btn');
+  botoes.forEach(function(b){
+    b.classList.toggle('ativo', b.getAttribute('data-moldura') === cropState.moldura);
+  });
+}
+
+function medirStageCrop() {
+  const r = cropStageEl.getBoundingClientRect();
+  cropState.stageW = r.width; cropState.stageH = r.height;
+}
+
+function aplicarTransformCrop() {
+  if (!cropStageEl || !cropImgEl) return;
+  medirStageCrop();
+  const iw = cropState.iw, ih = cropState.ih, zoom = cropState.zoom;
+  const stageW = cropState.stageW, stageH = cropState.stageH;
+  if (!iw || !ih || !stageW || !stageH) return;
+  const baseScale = Math.max(stageW / iw, stageH / ih);
+  const scale = baseScale * zoom;
+  const dispW = iw * scale, dispH = ih * scale;
+  const rangeX = Math.max(0, dispW - stageW), rangeY = Math.max(0, dispH - stageH);
+  const tx = -cropState.ox * rangeX, ty = -cropState.oy * rangeY;
+  cropImgEl.style.width = dispW + 'px';
+  cropImgEl.style.height = dispH + 'px';
+  cropImgEl.style.transform = 'translate(' + tx + 'px,' + ty + 'px)';
+}
+
+function onCropZoomInput(val) {
+  cropState.zoom = Math.max(1, parseFloat(val) / 100);
+  aplicarTransformCrop();
+}
+
+function cropPointerPos(e) {
+  if (e.touches && e.touches[0]) return { x: e.touches[0].clientX, y: e.touches[0].clientY };
+  return { x: e.clientX, y: e.clientY };
+}
+
+function iniciarDragCrop(e) {
+  e.preventDefault();
+  cropState.dragging = true;
+  const p = cropPointerPos(e);
+  cropState.startX = p.x; cropState.startY = p.y;
+  cropState.startOx = cropState.ox; cropState.startOy = cropState.oy;
+}
+
+function moverDragCrop(e) {
+  if (!cropState.dragging) return;
+  const p = cropPointerPos(e);
+  medirStageCrop();
+  const iw = cropState.iw, ih = cropState.ih, zoom = cropState.zoom;
+  const stageW = cropState.stageW, stageH = cropState.stageH;
+  if (!iw || !ih) return;
+  const baseScale = Math.max(stageW / iw, stageH / ih);
+  const scale = baseScale * zoom;
+  const dispW = iw * scale, dispH = ih * scale;
+  const rangeX = Math.max(1, dispW - stageW), rangeY = Math.max(1, dispH - stageH);
+  const dx = p.x - cropState.startX, dy = p.y - cropState.startY;
+  cropState.ox = Math.min(1, Math.max(0, cropState.startOx - dx / rangeX));
+  cropState.oy = Math.min(1, Math.max(0, cropState.startOy - dy / rangeY));
+  aplicarTransformCrop();
+}
+
+function pararDragCrop() { cropState.dragging = false; }
+
+function ativarListenersCrop() {
+  if (cropListenersAtivos) return;
+  cropListenersAtivos = true;
+  cropStageEl.addEventListener('pointerdown', iniciarDragCrop);
+  window.addEventListener('pointermove', moverDragCrop);
+  window.addEventListener('pointerup', pararDragCrop);
+  cropStageEl.addEventListener('touchstart', iniciarDragCrop, { passive: false });
+  window.addEventListener('touchmove', moverDragCrop, { passive: false });
+  window.addEventListener('touchend', pararDragCrop);
+}
+
+// ══════════════════ FORMATO DATA (dd/mm/aaaa, ano opcional) ══════════════════
+function formatarDataMembro(inp) {
+  let v = inp.value.replace(/\D/g, "");
+  if (v.length > 8) v = v.slice(0, 8);
+  if (v.length > 4) v = v.slice(0, 2) + "/" + v.slice(2, 4) + "/" + v.slice(4);
+  else if (v.length > 2) v = v.slice(0, 2) + "/" + v.slice(2);
+  inp.value = v;
+}
+
+// Quantidade de dias do mês (0-indexado), considerando o ano quando informado.
+// Quando o ano não é informado, usa um ano bissexto (2000) como referência,
+// para permitir 29/02 mesmo sem saber se o ano de nascimento foi bissexto.
+function diasNoMes(mes, ano) {
+  const anoRef = (ano != null && !isNaN(ano)) ? ano : 2000;
+  return new Date(anoRef, mes + 1, 0).getDate();
+}
+
+// Validação completa da data de nascimento (dd/mm ou dd/mm/aaaa).
+// Retorna { ok:true, dia, mes, ano } quando válida, ou { ok:false, erro }
+// com uma mensagem clara explicando o motivo da rejeição.
+function validarNascimento(str) {
+  const s = (str || "").trim();
+  const p = s.split("/");
+
+  if (p.length < 2 || p.length > 3 || p.some(x => x === "")) {
+    return { ok: false, erro: "Informe uma data válida (dd/mm ou dd/mm/aaaa)." };
+  }
+
+  const dia = parseInt(p[0], 10);
+  const mesNum = parseInt(p[1], 10);
+  const temAno = p.length === 3;
+  let ano = temAno ? parseInt(p[2], 10) : null;
+
+  if (isNaN(dia) || isNaN(mesNum) || (temAno && isNaN(ano))) {
+    return { ok: false, erro: "Informe uma data válida (dd/mm ou dd/mm/aaaa)." };
+  }
+  if (mesNum < 1 || mesNum > 12) {
+    return { ok: false, erro: "Mês inválido. Use um valor entre 01 e 12." };
+  }
+  if (temAno && ano < 100) ano += 2000;
+
+  const anoAtual = new Date().getFullYear();
+  if (temAno) {
+    if (ano > anoAtual) {
+      return { ok: false, erro: "O ano de nascimento não pode ser no futuro." };
+    }
+    if (ano < 1900) {
+      return { ok: false, erro: "Informe um ano de nascimento válido (a partir de 1900)." };
+    }
+  }
+
+  const mes = mesNum - 1;
+  const maxDia = diasNoMes(mes, ano);
+  if (dia < 1 || dia > maxDia) {
+    return { ok: false, erro: "Essa data não existe. Confira o dia informado para o mês (" + String(mesNum).padStart(2,"0") + ")." };
+  }
+
+  return { ok: true, dia: dia, mes: mes, ano: ano };
+}
+
+// Mantido por compatibilidade com o restante do app: agora retorna null
+// para qualquer data inválida (não apenas quando os campos não são números).
+function parseNascimento(str) {
+  const r = validarNascimento(str);
+  return r.ok ? { dia: r.dia, mes: r.mes, ano: r.ano } : null;
+}
+
+function formatarNascimentoLabel(str) {
+  const o = parseNascimento(str);
+  if (!o) return str || "";
+  const dd = String(o.dia).padStart(2,"0");
+  const mm = String(o.mes+1).padStart(2,"0");
+  return o.ano ? (dd+"/"+mm+"/"+o.ano) : (dd+"/"+mm);
+}
+
+// ══════════════════ CRUD MEMBROS ══════════════════
+function salvarMembroPessoa() {
+  const nome = normalizarNomeMembro(document.getElementById("inputNomeMembro").value);
+  const sexo = document.getElementById("inputSexoMembro").value;
+  const nascimento = document.getElementById("inputNascimentoMembro").value.trim();
+  const grupo = document.getElementById("inputGrupoMembro").value;
+
+  if (!nome) { mostrarToast("Informe o nome do membro."); return; }
+  const validacaoNascimento = validarNascimento(nascimento);
+  if (!validacaoNascimento.ok) { mostrarToast(validacaoNascimento.erro); return; }
+  if (existeMembroDuplicado(nome, nascimento, idEditandoMembro)) {
+    mostrarToast("Já existe um membro cadastrado com este nome e data de nascimento.");
+    return;
+  }
+
+  const membros = loadMembros();
+
+  if (idEditandoMembro !== null) {
+    const idx = membros.findIndex(m => m.id === idEditandoMembro);
+    if (idx > -1) {
+      membros[idx].nome = nome;
+      membros[idx].sexo = sexo;
+      membros[idx].nascimento = nascimento;
+      membros[idx].grupo = grupo;
+      membros[idx].foto = fotoAtualBase64;
+      membros[idx].crop = cropAtualMembro;
+      membros[idx].moldura = molduraAtualMembro;
+    }
+    mostrarToast("Membro atualizado!");
+  } else {
+    membros.push({ id: Date.now(), nome: nome, sexo: sexo, nascimento: nascimento, grupo: grupo, foto: fotoAtualBase64, crop: cropAtualMembro, moldura: molduraAtualMembro });
+    mostrarToast("Membro adicionado!");
+  }
+
+  saveMembros(membros);
+  cancelarEdicaoMembro();
+  renderMembrosLista();
+  renderMembrosDoMes();
+  popularDatalistMembros();
+}
+
+function editarMembro(id) {
+  const membros = loadMembros();
+  const m = membros.find(x => x.id === id);
+  if (!m) return;
+  idEditandoMembro = id;
+  fotoAtualBase64 = m.foto || null;
+  cropAtualMembro = m.crop || { zoom: 1, ox: 0.5, oy: 0.5 };
+  molduraAtualMembro = m.moldura || MOLDURA_PADRAO;
+  document.getElementById("inputNomeMembro").value = m.nome;
+  document.getElementById("inputSexoMembro").value = m.sexo || "F";
+  document.getElementById("inputNascimentoMembro").value = m.nascimento;
+  document.getElementById("inputGrupoMembro").value = m.grupo || "";
+  atualizarPreviewFotoMembro();
+  document.getElementById("membroFormTitulo").textContent = "Editar membro";
+  document.getElementById("membroEditBadge").style.display = "inline-flex";
+  document.getElementById("btnSalvarMembroTexto").textContent = "Atualizar";
+  document.getElementById("membroFormCard").classList.add("editando");
+  mostrarFormMembro();
+  document.getElementById("membroFormCard").scrollIntoView({ behavior: "smooth", block: "center" });
+}
+
+// Limpa os campos do formulário e volta ao modo "adicionar" (sem mexer na
+// visibilidade do formulário — quem chama decide se mostra ou esconde depois).
+function resetarFormMembro() {
+  idEditandoMembro = null;
+  fotoAtualBase64 = null;
+  cropAtualMembro = { zoom: 1, ox: 0.5, oy: 0.5 };
+  molduraAtualMembro = MOLDURA_PADRAO;
+  document.getElementById("inputNomeMembro").value = "";
+  document.getElementById("inputSexoMembro").value = "F";
+  document.getElementById("inputNascimentoMembro").value = "";
+  document.getElementById("inputGrupoMembro").value = "";
+  document.getElementById("inputFotoMembro").value = "";
+  atualizarPreviewFotoMembro();
+  document.getElementById("membroFormTitulo").textContent = "Adicionar membro";
+  document.getElementById("membroEditBadge").style.display = "none";
+  document.getElementById("btnSalvarMembroTexto").textContent = "Salvar";
+  document.getElementById("membroFormCard").classList.remove("editando");
+}
+
+function cancelarEdicaoMembro() {
+  resetarFormMembro();
+  esconderFormMembro();
+}
+
+// ══════════════════ ABRIR/FECHAR FORMULÁRIO DE MEMBRO ══════════════════
+// O formulário de cadastro fica oculto por padrão; só aparece ao clicar em
+// "Adicionar membro" ou ao editar um membro existente na lista.
+function mostrarFormMembro() {
+  document.getElementById("membroFormCard").classList.remove("oculto");
+  document.getElementById("btnAbrirFormMembro").style.display = "none";
+}
+
+function esconderFormMembro() {
+  document.getElementById("membroFormCard").classList.add("oculto");
+  document.getElementById("btnAbrirFormMembro").style.display = "inline-flex";
+}
+
+function abrirFormAdicionarMembro() {
+  resetarFormMembro(); // garante formulário limpo, no modo "adicionar"
+  mostrarFormMembro();
+  document.getElementById("membroFormCard").scrollIntoView({ behavior: "smooth", block: "center" });
+}
+
+function abrirModalExcluirMembro(id) {
+  idParaExcluirMembro = id;
+  document.getElementById("modalExcluirMembro").classList.add("on");
+}
+function fecharModalMembro() {
+  document.getElementById("modalExcluirMembro").classList.remove("on");
+  idParaExcluirMembro = null;
+}
+function confirmarExclusaoMembro() {
+  if (idParaExcluirMembro === null) return;
+  const membros = loadMembros();
+  const idx = membros.findIndex(m => m.id === idParaExcluirMembro);
+  if (idx === -1) { fecharModalMembro(); return; }
+  // Guarda uma cópia completa do membro (dados, foto e moldura) e a posição
+  // original, para permitir desfazer a exclusão enquanto o toast estiver visível.
+  const membroRemovido = JSON.parse(JSON.stringify(membros[idx]));
+  membros.splice(idx, 1);
+  saveMembros(membros);
+  fecharModalMembro();
+  renderMembrosLista();
+  renderMembrosDoMes();
+  popularDatalistMembros();
+  mostrarToastDesfazerExclusao(membroRemovido, idx);
+}
+
+// ══════════════════ DESFAZER EXCLUSÃO DE MEMBRO ══════════════════
+let membroExcluidoTemp = null;
+let timerToastUndo = null;
+
+function mostrarToastDesfazerExclusao(membro, indiceOriginal) {
+  clearTimeout(timerToastUndo);
+  membroExcluidoTemp = { membro: membro, indice: indiceOriginal };
+  const toast = document.getElementById("toastUndo");
+  document.getElementById("toastUndoMsg").textContent = "Membro " + membro.nome + " excluído.";
+  toast.classList.add("on");
+  // Após o tempo do toast expirar sem clicar em "Desfazer", a exclusão
+  // permanece definitiva (o membro já havia sido removido do armazenamento).
+  timerToastUndo = setTimeout(function() {
+    toast.classList.remove("on");
+    membroExcluidoTemp = null;
+  }, 6000);
+}
+
+function desfazerExclusaoMembro() {
+  if (!membroExcluidoTemp) return;
+  clearTimeout(timerToastUndo);
+  const membros = loadMembros();
+  const indice = Math.min(membroExcluidoTemp.indice, membros.length);
+  // Restaura o membro (com todos os dados, foto e moldura) na posição original.
+  membros.splice(indice, 0, membroExcluidoTemp.membro);
+  saveMembros(membros);
+  renderMembrosLista();
+  renderMembrosDoMes();
+  popularDatalistMembros();
+  document.getElementById("toastUndo").classList.remove("on");
+  membroExcluidoTemp = null;
+  mostrarToast("↩️ Exclusão desfeita!");
+}
+
+// ══════════════════ RENDER — LISTA COMPLETA ══════════════════
+function filtrarMembrosBusca(valor) {
+  buscaMembrosTexto = valor || "";
+  paginaMembrosAtual = 1;
+  const btnLimpar = document.getElementById("btnLimparBuscaMembro");
+  if (btnLimpar) btnLimpar.style.display = buscaMembrosTexto ? "block" : "none";
+  renderMembrosLista();
+}
+
+function limparBuscaMembro() {
+  const input = document.getElementById("inputBuscaMembro");
+  if (input) input.value = "";
+  filtrarMembrosBusca("");
+  if (input) input.focus();
+}
+
+// Filtro por categoria (Kids / Teens / Adultos), combinável com a busca por texto.
+function filtrarCategoriaMembro(valor) {
+  filtroCategoriaMembros = valor || "";
+  paginaMembrosAtual = 1;
+  renderMembrosLista();
+}
+
+// Ordenação da lista: nome (A-Z), próximo aniversário ou data de cadastro.
+function mudarOrdenacaoMembro(valor) {
+  ordenacaoMembros = valor || "nome";
+  paginaMembrosAtual = 1;
+  renderMembrosLista();
+}
+
+// Quantos dias faltam para o próximo aniversário do membro (0 = hoje).
+// Retorna Infinity quando a data de nascimento é inválida/ausente, para que
+// esses casos fiquem sempre no fim ao ordenar por "próximo aniversário".
+function diasAteProximoAniversario(nascimentoStr) {
+  const o = parseNascimento(nascimentoStr);
+  if (!o) return Infinity;
+  const hoje = new Date();
+  hoje.setHours(0, 0, 0, 0);
+  let proximo = new Date(hoje.getFullYear(), o.mes, o.dia);
+  proximo.setHours(0, 0, 0, 0);
+  if (proximo < hoje) proximo = new Date(hoje.getFullYear() + 1, o.mes, o.dia);
+  return Math.round((proximo - hoje) / 86400000);
+}
+
+// Aplica o critério de ordenação escolhido a uma lista de membros.
+function ordenarMembros(lista, criterio) {
+  const arr = lista.slice();
+  if (criterio === "proximoAniversario") {
+    arr.sort((a, b) => diasAteProximoAniversario(a.nascimento) - diasAteProximoAniversario(b.nascimento));
+  } else if (criterio === "cadastro") {
+    // O id de cada membro é gerado com Date.now() na criação, então ele já
+    // reflete a ordem cronológica de cadastro (do mais antigo ao mais novo).
+    arr.sort((a, b) => (a.id || 0) - (b.id || 0));
+  } else {
+    arr.sort((a, b) => (a.nome || "").localeCompare(b.nome || "", "pt-BR"));
+  }
+  return arr;
+}
+
+function mudarMembrosPorPagina(valor) {
+  membrosPorPagina = parseInt(valor, 10) || 10;
+  paginaMembrosAtual = 1;
+  renderMembrosLista();
+}
+
+function irParaPaginaMembros(pagina) {
+  paginaMembrosAtual = pagina;
+  renderMembrosLista();
+  const box = document.getElementById("membrosLista");
+  if (box) box.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function renderMembrosLista() {
+  const todosOsMembros = loadMembros();
+
+  // Combina filtro de categoria + busca por texto; a ordenação é aplicada por último.
+  const termoBusca = normalizarTexto(buscaMembrosTexto);
+  let membrosFiltrados = todosOsMembros.filter(m => {
+    if (filtroCategoriaMembros) {
+      const grupoMembro = m.grupo || "adulto";
+      if (grupoMembro !== filtroCategoriaMembros) return false;
+    }
+    if (termoBusca && !normalizarTexto(m.nome).includes(termoBusca)) return false;
+    return true;
+  });
+  membrosFiltrados = ordenarMembros(membrosFiltrados, ordenacaoMembros);
+
+  const box = document.getElementById("membrosLista");
+  const pagBox = document.getElementById("membrosPaginacao");
+
+  if (!todosOsMembros.length) {
+    box.innerHTML = '<div class="escala-vazia"><span>🎂</span>Nenhum membro cadastrado ainda.</div>';
+    if (pagBox) pagBox.innerHTML = "";
+    return;
+  }
+  if (!membrosFiltrados.length) {
+    const msgVazio = buscaMembrosTexto
+      ? 'Nenhum membro encontrado para "' + escH(buscaMembrosTexto) + '".'
+      : 'Nenhum membro encontrado para os filtros selecionados.';
+    box.innerHTML = '<div class="escala-vazia"><span>🔎</span>' + msgVazio + '</div>';
+    if (pagBox) pagBox.innerHTML = "";
+    return;
+  }
+
+  // Calcula paginação, garantindo que a página atual permaneça válida
+  // mesmo após buscas, exclusões ou mudança de quantidade por página.
+  const totalPaginas = Math.max(1, Math.ceil(membrosFiltrados.length / membrosPorPagina));
+  if (paginaMembrosAtual > totalPaginas) paginaMembrosAtual = totalPaginas;
+  if (paginaMembrosAtual < 1) paginaMembrosAtual = 1;
+
+  const inicio = (paginaMembrosAtual - 1) * membrosPorPagina;
+  const membrosPagina = membrosFiltrados.slice(inicio, inicio + membrosPorPagina);
+
+  box.innerHTML = membrosPagina.map(m => {
+    const ini = (m.nome || "?")[0].toUpperCase();
+    const avatarHtml = m.foto ? '<img src="' + m.foto + '" alt="">' : ini;
+    const tagGrupo = m.grupo === 'kids' ? ' <span class="tag-grupo">Kids</span>' : (m.grupo === 'teens' ? ' <span class="tag-grupo">Teens</span>' : '');
+    // O botão de prévia só aparece quando o membro tem foto enviada (upload),
+    // já que sem foto não é possível montar o cartão de aniversário.
+    const btnPreviewHtml = m.foto
+      ? '<button class="escala-preview" onclick="abrirPreviewAniversario(' + m.id + ')" title="Ver prévia do cartão de aniversário">🎂</button>'
+      : '';
+    return '<div class="escala-item">'
+      + '<div class="escala-avatar ' + classeMoldura(m.moldura) + '">' + avatarHtml + '</div>'
+      + '<div><div class="escala-nome">' + escH(m.nome) + tagGrupo + '</div>'
+      + '<span class="escala-func">🎂 ' + escH(formatarNascimentoLabel(m.nascimento)) + '</span></div>'
+      + '<div class="escala-acoes">'
+        + btnPreviewHtml
+        + '<button class="escala-edit" onclick="editarMembro(' + m.id + ')" title="Editar">✏️</button>'
+        + '<button class="escala-del" onclick="abrirModalExcluirMembro(' + m.id + ')" title="Remover">🗑</button>'
+      + '</div>'
+    + '</div>';
+  }).join("");
+
+  // Paginação só é exibida quando há mais de uma página.
+  if (!pagBox) return;
+  if (totalPaginas <= 1) {
+    pagBox.innerHTML = "";
+    return;
+  }
+  pagBox.innerHTML = '<div class="membros-paginacao">'
+    + '<button onclick="irParaPaginaMembros(' + (paginaMembrosAtual - 1) + ')"' + (paginaMembrosAtual <= 1 ? ' disabled' : '') + '>‹ Anterior</button>'
+    + '<span class="membros-pag-info">Página ' + paginaMembrosAtual + ' de ' + totalPaginas + ' · ' + membrosFiltrados.length + ' membro' + (membrosFiltrados.length !== 1 ? 's' : '') + '</span>'
+    + '<button onclick="irParaPaginaMembros(' + (paginaMembrosAtual + 1) + ')"' + (paginaMembrosAtual >= totalPaginas ? ' disabled' : '') + '>Próxima ›</button>'
+  + '</div>';
+}
+
+// ══════════════════ RENDER — ANIVERSARIANTES DO MÊS ══════════════════
+function renderMembrosDoMes() {
+  const hoje = new Date();
+  const membros = loadMembros().filter(m => {
+    const o = parseNascimento(m.nascimento);
+    return o && o.mes === hoje.getMonth();
+  }).sort((a,b) => parseNascimento(a.nascimento).dia - parseNascimento(b.nascimento).dia);
+
+  const box = document.getElementById("membrosMesLista");
+  if (!membros.length) {
+    box.innerHTML = '<div class="escala-vazia"><span>📅</span>Ninguém faz aniversário este mês.</div>';
+    return;
+  }
+  box.innerHTML = membros.map(m => {
+    const o = parseNascimento(m.nascimento);
+    const ehHoje = o.dia === hoje.getDate();
+    const ini = (m.nome || "?")[0].toUpperCase();
+    const avatarHtml = m.foto ? '<img src="' + m.foto + '" alt="">' : ini;
+    const tagGrupo = m.grupo === 'kids' ? ' <span class="tag-grupo">Kids</span>' : (m.grupo === 'teens' ? ' <span class="tag-grupo">Teens</span>' : '');
+    return '<div class="membro-mes-item' + (ehHoje ? ' hoje' : '') + '">'
+      + '<div class="membro-mes-dia">' + String(o.dia).padStart(2,"0") + '</div>'
+      + '<div class="membro-mes-avatar ' + classeMoldura(m.moldura) + '">' + avatarHtml + '</div>'
+      + '<div class="membro-mes-nome">' + escH(m.nome) + tagGrupo + '</div>'
+      + (ehHoje ? '<span class="membro-badge-hoje">HOJE 🎉</span>' : '')
+    + '</div>';
+  }).join("");
+}
+
+// ══════════════════ DATALIST — sugestões de nomes na aba Escala ══════════════════
+function popularDatalistMembros() {
+  const dl = document.getElementById("membrosDatalist");
+  if (!dl) return;
+  const membros = loadMembros();
+  dl.innerHTML = membros.map(m => '<option value="' + escH(m.nome) + '">').join("");
+}
+
+// ══════════════════ NOTIFICAÇÃO DE ANIVERSÁRIO DO DIA ══════════════════
+function gerarMensagemAniversario(nome, sexo, grupo) {
+  let tratamento;
+  if (grupo === 'kids') tratamento = 'do nosso kids';
+  else if (grupo === 'teens') tratamento = 'do nosso teens';
+  else tratamento = sexo === 'M' ? 'do nosso irmão' : 'da nossa irmã';
+  return 'Hoje é o aniversário ' + tratamento + ' ' + nome + '🥳\n\n'
+    + 'Toda ICB Murici deseja um Feliz Aniversário repleto de bênçãos e alegrias!\n\n'
+    + '_"Todo o meu ser louve o Senhor; louvarei seu santo nome de todo o coração."_\n'
+    + 'Salmos 103.1\n\n'
+    + '*Que Deus continue guiando seus passos e iluminando seu caminho em todos os dias da sua vida.*';
+}
+
+function checkAniversariantesHoje() {
+  const hoje = new Date();
+  const d = hoje.getDate(), m = hoje.getMonth();
+  return loadMembros().filter(x => {
+    const o = parseNascimento(x.nascimento);
+    return o && o.dia === d && o.mes === m;
+  }).map(x => {
+    return { id: x.id, nome: x.nome, sexo: x.sexo || 'F', grupo: x.grupo || '', foto: x.foto || null, moldura: x.moldura || MOLDURA_PADRAO };
+  });
+}
+
+function mostrarBannerAniversario() {
+  const lista = checkAniversariantesHoje();
+  const banner = document.getElementById("aniversarioBanner");
+  if (!lista.length) { banner.classList.remove("on"); banner.innerHTML = ""; return; }
+
+  const cards = lista.map(function(p, i){
+    const msg = gerarMensagemAniversario(p.nome, p.sexo, p.grupo);
+    const inicial = (p.nome || "?")[0].toUpperCase();
+    const fotoHtml = p.foto ? '<img src="' + p.foto + '" alt="">' : inicial;
+    // O botão "Gerar imagem" só aparece quando o membro tem foto enviada (upload).
+    const btnGerarImagemHtml = p.foto
+      ? '<button class="aniv-gerar-imagem" id="btnGerarImagem' + p.id + '" onclick="gerarImagemAniversario(' + p.id + ')">🖼️ Gerar imagem</button>'
+      : '';
+    return '<div class="aniv-card">'
+      + '<div class="aniv-card-topo">'
+        + '<div class="aniv-card-foto ' + classeMoldura(p.moldura) + '">' + fotoHtml + '</div>'
+        + '<div class="aniv-nome">🎂 ' + escH(p.nome) + ' faz aniversário hoje!</div>'
+      + '</div>'
+      + '<textarea class="aniv-msg" id="anivMsg' + i + '">' + msg + '</textarea>'
+      + '<div class="aniv-acoes-row">'
+        + '<button class="aniv-copiar" onclick="copiarMensagemAniversario(' + i + ')">📋 Copiar mensagem</button>'
+        + btnGerarImagemHtml
+      + '</div>'
+    + '</div>';
+  }).join("");
+
+  banner.innerHTML =
+    '<button class="aniv-fechar-todos" onclick="fecharBannerAniversario()">✕</button>'
+    + '<div class="aniv-wrap">'
+      + '<div class="aniv-titulo">🎉 ' + (lista.length > 1 ? 'Temos aniversariantes hoje!' : 'Temos um aniversariante hoje!') + '</div>'
+      + cards
+    + '</div>';
+  banner.classList.add("on");
+}
+
+function copiarMensagemAniversario(i) {
+  const ta = document.getElementById("anivMsg" + i);
+  navigator.clipboard.writeText(ta.value).then(function(){
+    mostrarToast("Mensagem copiada!");
+  }).catch(function(){
+    ta.select();
+    document.execCommand("copy");
+    mostrarToast("Mensagem copiada!");
+  });
+}
+
+function fecharBannerAniversario() {
+  const banner = document.getElementById("aniversarioBanner");
+  banner.classList.remove("on");
+}
+
+// ══════════════════ AVISO TEMPORÁRIO — ANIVERSÁRIOS PRÓXIMOS ══════════════════
+// Notificação curta, exibida automaticamente ao abrir a página quando há
+// membros fazendo aniversário hoje, amanhã ou nos próximos dias. Some
+// sozinha após 7 segundos (não depende de o usuário fechar).
+const AVISO_PROXIMO_ANIV_JANELA_DIAS = 2;   // avisa para hoje (0), amanhã (1) e depois de amanhã (2)
+const AVISO_PROXIMO_ANIV_DURACAO_MS = 7000; // 7 segundos
+let timerAvisoProximoAniv = null;
+
+function gerarTextoAvisoProximoAniv(nome, dias) {
+  const nomeSeguro = escH(nome);
+  if (dias === 0) return nomeSeguro + " está fazendo aniversário hoje";
+  if (dias === 1) return nomeSeguro + " completa ano amanhã";
+  return nomeSeguro + " completa ano em " + dias + " dias";
+}
+
+function mostrarAvisoProximosAniversarios() {
+  const el = document.getElementById("avisoProximoAniversario");
+  if (!el) return;
+
+  const proximos = loadMembros()
+    .map(m => ({ nome: m.nome, dias: diasAteProximoAniversario(m.nascimento) }))
+    .filter(x => x.dias !== Infinity && x.dias >= 0 && x.dias <= AVISO_PROXIMO_ANIV_JANELA_DIAS)
+    .sort((a, b) => a.dias - b.dias);
+
+  if (!proximos.length) { el.classList.remove("on"); el.innerHTML = ""; return; }
+
+  el.innerHTML = proximos.map(p =>
+    '<div class="aviso-linha">🎈 ' + gerarTextoAvisoProximoAniv(p.nome, p.dias) + '</div>'
+  ).join("");
+
+  el.classList.add("on");
+
+  clearTimeout(timerAvisoProximoAniv);
+  timerAvisoProximoAniv = setTimeout(function () {
+    el.classList.remove("on");
+  }, AVISO_PROXIMO_ANIV_DURACAO_MS);
+}
+
+// ══════════════════ LOGO DA IGREJA (topo esquerdo + cartões) ══════════════════
+const CHAVE_LOGO_IGREJA = 'icb_logo_igreja';
+// Logo padrao da igreja (ICB Murici), usada como fallback ate que o usuario
+// faca upload de uma logo propria pela interface (fica salva no localStorage).
+
+function loadLogoIgreja() {
+  try {
+    const salva = localStorage.getItem(CHAVE_LOGO_IGREJA);
+    if (salva === '__removida__') return null; // usuário removeu de propósito
+    return salva || null;
+  } catch (e) { return null; }
+}
+function salvarLogoIgreja(dataURL) {
+  try { localStorage.setItem(CHAVE_LOGO_IGREJA, dataURL); } catch (e) {
+    mostrarModalAviso('Não foi possível salvar a logo', 'O navegador recusou salvar a imagem (arquivo muito grande). Tente uma logo menor.', '❌');
+  }
+}
+function atualizarLogoIgrejaUI() {
+  const logo = loadLogoIgreja();
+  const img = document.getElementById('tabbarLogoImg');
+  const btnRemover = document.getElementById('btnRemoverLogoIgreja');
+  if (logo) {
+    img.innerHTML = '<img src="' + logo + '" alt="Logo da igreja">';
+    btnRemover.style.display = 'flex';
+  } else {
+    img.innerHTML = '⛪';
+    btnRemover.style.display = 'none';
+  }
+}
+function selecionarLogoIgreja(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const img = new Image();
+    img.onload = function() {
+      const MAX = 400;
+      let w = img.width, h = img.height;
+      if (w > h && w > MAX) { h = Math.round(h * (MAX / w)); w = MAX; }
+      else if (h >= w && h > MAX) { w = Math.round(w * (MAX / h)); h = MAX; }
+      const canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      salvarLogoIgreja(canvas.toDataURL('image/png'));
+      atualizarLogoIgrejaUI();
+      mostrarBannerAniversario();
+      mostrarToast('✅ Logo da igreja atualizada!');
+      input.value = '';
+    };
+    img.onerror = function() {
+      mostrarModalAviso('Não foi possível abrir a imagem', 'Escolha outro arquivo de imagem para a logo.', '❌');
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+function removerLogoIgreja(ev) {
+  if (ev) ev.stopPropagation();
+  try { localStorage.setItem(CHAVE_LOGO_IGREJA, '__removida__'); } catch (e) {}
+  atualizarLogoIgrejaUI();
+  mostrarBannerAniversario();
+  mostrarToast('Logo removida.');
+}
+
+// ══════════════════ CONFIGURAÇÃO DE FUNDOS DOS CARTÕES (aba ⚙️) ══════════════════
+// Cada categoria (sexo × faixa etária) pode ter uma imagem de fundo própria,
+// enviada pelo usuário e salva no localStorage. Quando não houver imagem
+// enviada, o cartão usa o fundo padrão já definido em CSS para a categoria.
+const CHAVE_FUNDO_PREFIX = 'icb_fundo_cartao_';
+const CATEGORIAS_FUNDO = [
+  { chave: 'cartao-adulto-homem',  label: 'Adulto — Homem',  icone: '🧔' },
+  { chave: 'cartao-adulto-mulher', label: 'Adulto — Mulher', icone: '👩' },
+  { chave: 'cartao-teens-menino',  label: 'Teens — Menino',  icone: '🧑' },
+  { chave: 'cartao-teens-menina',  label: 'Teens — Menina',  icone: '👧' },
+  { chave: 'cartao-kids-menino',   label: 'Kids — Menino',   icone: '👦' },
+  { chave: 'cartao-kids-menina',   label: 'Kids — Menina',   icone: '👶' },
+];
+
+function loadFundoCartao(categoriaClasse) {
+  try {
+    const salvo = localStorage.getItem(CHAVE_FUNDO_PREFIX + categoriaClasse);
+    return salvo || null; // null = usa o fundo padrão definido em CSS
+  } catch (e) { return null; }
+}
+function salvarFundoCartao(categoriaClasse, dataURL) {
+  try {
+    localStorage.setItem(CHAVE_FUNDO_PREFIX + categoriaClasse, dataURL);
+  } catch (e) {
+    mostrarModalAviso('Não foi possível salvar o fundo', 'O navegador recusou salvar a imagem (arquivo muito grande). Tente uma imagem menor.', '❌');
+  }
+}
+function removerFundoCartao(categoriaClasse) {
+  try { localStorage.removeItem(CHAVE_FUNDO_PREFIX + categoriaClasse); } catch (e) {}
+  renderFundosCartaoConfig();
+  mostrarToast('Fundo removido — voltando ao padrão.');
+}
+
+function renderFundosCartaoConfig() {
+  const cont = document.getElementById('fundosCartaoLista');
+  if (!cont) return;
+  cont.innerHTML = CATEGORIAS_FUNDO.map(function(cat) {
+    const fundo = loadFundoCartao(cat.chave);
+    const previewStyle = fundo ? ' style="background-image:url(\'' + fundo + '\');"' : '';
+    const previewConteudo = fundo ? '' : cat.icone;
+    const statusTexto = fundo ? 'Imagem personalizada' : 'Usando fundo padrão';
+    const inputId = 'inputFundo_' + cat.chave;
+    return ''
+      + '<div class="fundo-item">'
+        + '<div class="fundo-preview"' + previewStyle + '>' + previewConteudo + '</div>'
+        + '<div class="fundo-info">'
+          + '<div class="fundo-titulo">' + cat.label + '</div>'
+          + '<div class="fundo-status">' + statusTexto + '</div>'
+        + '</div>'
+        + '<div class="fundo-botoes">'
+          + '<label class="btn-fundo-upload">'
+            + '🖼️ ' + (fundo ? 'Trocar' : 'Enviar')
+            + '<input type="file" accept="image/*" id="' + inputId + '" style="display:none;" onchange="selecionarFundoCartao(this,\'' + cat.chave + '\')">'
+          + '</label>'
+          + (fundo ? '<button type="button" class="btn-fundo-remover" onclick="removerFundoCartao(\'' + cat.chave + '\')">✕ Remover</button>' : '')
+        + '</div>'
+      + '</div>';
+  }).join('');
+}
+
+function selecionarFundoCartao(input, categoriaClasse) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const img = new Image();
+    img.onload = function() {
+      // Redimensiona para no máximo 1080px de largura (tamanho do cartão)
+      // mantendo a proporção, para não pesar demais no localStorage.
+      const MAX = 1080;
+      let w = img.width, h = img.height;
+      if (w > MAX) { h = Math.round(h * (MAX / w)); w = MAX; }
+      const canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      salvarFundoCartao(categoriaClasse, canvas.toDataURL('image/jpeg', 0.85));
+      renderFundosCartaoConfig();
+      mostrarToast('✅ Fundo atualizado!');
+      input.value = '';
+    };
+    img.onerror = function() {
+      mostrarModalAviso('Não foi possível abrir a imagem', 'Escolha outro arquivo de imagem para o fundo.', '❌');
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+// ══════════════════ MODAL DE AVISO/ERRO (substitui alertas nativos) ══════════════════
+function mostrarModalAviso(titulo, desc, icone) {
+  document.getElementById('modalAvisoIcon').textContent = icone || '⚠️';
+  document.getElementById('modalAvisoTitulo').textContent = titulo;
+  document.getElementById('modalAvisoDesc').textContent = desc;
+  document.getElementById('modalAviso').classList.add('on');
+}
+function fecharModalAviso() {
+  document.getElementById('modalAviso').classList.remove('on');
+}
+
+// ══════════════════ GERAR IMAGEM DE ANIVERSÁRIO (PNG) ══════════════════
+// ── Define qual variação de fundo/decoração o cartão deve usar,
+// conforme o sexo e a categoria (adulto/kids/teens) do membro. ──
+function categoriaCartaoMembro(membro) {
+  const grupo = membro.grupo || ''; // '' = adulto, 'kids', 'teens'
+  const ehHomem = membro.sexo === 'M';
+  if (grupo === 'kids') return ehHomem ? 'cartao-kids-menino' : 'cartao-kids-menina';
+  if (grupo === 'teens') return ehHomem ? 'cartao-teens-menino' : 'cartao-teens-menina';
+  return ehHomem ? 'cartao-adulto-homem' : 'cartao-adulto-mulher';
+}
+
+// Balões decorativos usados no fundo dos cartões Kids.
+function decoracoesBaloesKids() {
+  return '<div class="aniv-card-balao" style="left:50px;top:60px;">🎈</div>'
+    + '<div class="aniv-card-balao" style="right:60px;top:140px;font-size:48px;">🎈</div>'
+    + '<div class="aniv-card-balao" style="left:90px;bottom:80px;font-size:52px;">🎈</div>'
+    + '<div class="aniv-card-balao" style="right:80px;bottom:130px;font-size:40px;">🎈</div>';
+}
+
+// Círculos com borda dourada + confetes usados no fundo dos cartões Teens.
+function decoracoesCirculosTeens() {
+  return '<div class="aniv-card-circulo-dourado" style="width:140px;height:140px;left:-40px;top:220px;"></div>'
+    + '<div class="aniv-card-circulo-dourado" style="width:90px;height:90px;right:30px;top:420px;"></div>'
+    + '<div class="aniv-card-circulo-dourado" style="width:60px;height:60px;left:70px;bottom:200px;"></div>'
+    + '<div class="aniv-card-confete" style="left:130px;top:90px;">🎊</div>'
+    + '<div class="aniv-card-confete" style="right:110px;top:190px;">🎉</div>'
+    + '<div class="aniv-card-confete" style="left:210px;bottom:230px;">✨</div>'
+    + '<div class="aniv-card-confete" style="right:190px;bottom:310px;">🎊</div>';
+}
+
+async function montarCartaoAniversario(membro) {
+  const area = document.getElementById('aniv-render-area');
+
+  // Aplica a classe de fundo conforme sexo/categoria do membro (reseta antes,
+  // já que a área é reutilizada para gerar cartões de membros diferentes).
+  const categoriaClasse = categoriaCartaoMembro(membro);
+  area.className = categoriaClasse || '';
+
+  // Se o usuário enviou um fundo personalizado para esta categoria (aba ⚙️
+  // Configurações), sobrepõe o fundo padrão definido em CSS via estilo inline.
+  const fundoCustom = loadFundoCartao(categoriaClasse);
+  if (fundoCustom) {
+    area.style.backgroundImage = "url('" + fundoCustom + "')";
+    area.style.backgroundSize = 'cover';
+    area.style.backgroundPosition = 'center';
+  } else {
+    area.style.backgroundImage = '';
+    area.style.backgroundSize = '';
+    area.style.backgroundPosition = '';
+  }
+
+  // Usa a MESMA moldura (formato/proporção) escolhida no cadastro do membro
+  // para o recorte do cartão — assim o enquadramento ajustado no editor de
+  // foto é exatamente o que aparece na imagem gerada, sem distorcer nem
+  // recortar de um jeito diferente do que foi definido lá.
+  // Além do recorte, o próprio quadro branco (moldura) do cartão é redimensionado
+  // para "abraçar" a foto no formato escolhido (ex: retrato fica estreito e alto),
+  // em vez de manter sempre um quadro grande e fixo com sobra de espaço em branco.
+  const molduraMembro = membro.moldura || MOLDURA_PADRAO;
+  const dimsFoto = dimensoesMolduraNaCaixa(molduraMembro, CARTAO_FOTO_RATIO_W, CARTAO_FOTO_RATIO_H);
+  const PADDING_FRAME = 16; // deve bater com o padding do CSS .aniv-card-frame
+  const frameOutW = dimsFoto.w + PADDING_FRAME * 2;
+  const frameOutH = dimsFoto.h + PADDING_FRAME * 2;
+  // Caixa máxima original onde o quadro fica centralizado (left:88/top:260/904x760)
+  const CAIXA_MAX_L = 88, CAIXA_MAX_T = 260, CAIXA_MAX_W = 904, CAIXA_MAX_H = 760;
+  const frameLeft = CAIXA_MAX_L + (CAIXA_MAX_W - frameOutW) / 2;
+  const frameTop = CAIXA_MAX_T + (CAIXA_MAX_H - frameOutH) / 2;
+  const raioFrame = molduraMembro === 'redondo' ? '50%' : '6px';
+  const styleFrame = 'left:' + frameLeft + 'px;top:' + frameTop + 'px;right:auto;'
+    + 'width:' + frameOutW + 'px;height:' + frameOutH + 'px;border-radius:' + raioFrame + ';';
+  const raioInner = molduraMembro === 'redondo' ? '50%' : '2px';
+
+  // Pré-recorta a foto nas dimensões exatas da moldura ANTES de inserir no DOM.
+  // Isso evita depender de object-fit dentro do html2canvas, que não respeita
+  // esse CSS de forma confiável e acaba esticando/distorcendo a imagem.
+  let fotoHtml = '<div class="aniv-card-placeholder">🙂</div>';
+  if (membro.foto) {
+    try {
+      const recorte = await gerarRecorteFoto(membro.foto, membro.crop, dimsFoto.w * 2, dimsFoto.h * 2);
+      if (recorte) fotoHtml = '<img src="' + recorte + '" alt="" style="width:100%;height:100%;display:block;">';
+    } catch (e) {
+      // Se o recorte falhar por algum motivo, cai no placeholder acima.
+      console.error('Falha ao recortar foto do cartão:', e);
+    }
+  }
+
+  const logo = loadLogoIgreja();
+  // A logo da igreja é exibida uma única vez, no canto superior direito do cartão.
+  const logoTopoHtml = logo ? '<div class="aniv-card-logo-topo"><img src="' + logo + '" alt="Logo"></div>' : '';
+  // Rodapé mantém apenas o nome da igreja (sem cruz nem imagem repetida).
+  const logoRodapeHtml = '';
+
+  // Decorações extras conforme a categoria (kids = balões / teens = círculos e confetes).
+  const grupoMembro = membro.grupo || '';
+  const decoracoesExtras = grupoMembro === 'kids' ? decoracoesBaloesKids()
+    : grupoMembro === 'teens' ? decoracoesCirculosTeens()
+    : '';
+
+  area.innerHTML =
+      '<div class="aniv-card-deco-1"></div>'
+    + '<div class="aniv-card-deco-2"></div>'
+    + '<div class="aniv-card-star" style="left:70px;top:640px;font-size:60px;">⭐</div>'
+    + '<div class="aniv-card-star" style="right:60px;top:60px;font-size:44px;">⭐</div>'
+    + '<div class="aniv-card-star" style="left:340px;top:750px;font-size:34px;">✨</div>'
+    + decoracoesExtras
+    + logoTopoHtml
+    + '<div class="aniv-card-frame" style="' + styleFrame + '">'
+      + '<div class="aniv-card-frame-inner" style="border-radius:' + raioInner + ';">' + fotoHtml + '</div>'
+    + '</div>'
+    + '<div class="aniv-card-feliz">Feliz<br>Aniversário</div>'
+    + '<div class="aniv-card-nome">' + escH(membro.nome) + '</div>'
+    + '<div class="aniv-card-logo">ICB Murici</div>';
+
+  // Garante que toda imagem já inserida esteja totalmente decodificada
+  // antes do html2canvas capturar o conteúdo (evita capturas "cruas"/quebradas).
+  const imgs = Array.from(area.querySelectorAll('img'));
+  await Promise.all(imgs.map(function(img) {
+    if (img.decode) return img.decode().catch(function(){});
+    if (img.complete) return Promise.resolve();
+    return new Promise(function(res){ img.onload = res; img.onerror = res; });
+  }));
+
+  return area;
+}
+
+// Monta o cartão no DOM (montarCartaoAniversario) e o captura com html2canvas,
+// devolvendo o <canvas> pronto. Reutilizado tanto pelo download direto quanto
+// pela prévia em modal, para não duplicar a lógica de captura.
+async function gerarCanvasAniversario(membro) {
+  const area = document.getElementById('aniv-render-area');
+  try {
+    await montarCartaoAniversario(membro);
+
+    // Aguarda as fontes (Poppins/Caveat) terminarem de carregar — capturar antes
+    // disso é a causa mais comum de falhas intermitentes na primeira tentativa.
+    if (document.fonts && document.fonts.ready) {
+      await document.fonts.ready.catch(function(){});
+    }
+    // Duplo requestAnimationFrame garante que o navegador já pintou o layout atual.
+    await new Promise(function(res){ requestAnimationFrame(function(){ requestAnimationFrame(res); }); });
+
+    const canvas = await html2canvas(area, {
+      scale: 1.8, useCORS: true, allowTaint: true, logging: false,
+      backgroundColor: null, width: 1080, height: 1350, windowWidth: 1080
+    });
+    return canvas;
+  } finally {
+    area.innerHTML = '';
+    area.className = '';
+    area.style.backgroundImage = '';
+    area.style.backgroundSize = '';
+    area.style.backgroundPosition = '';
+  }
+}
+
+async function gerarImagemAniversario(id) {
+  const membros = loadMembros();
+  const membro = membros.find(m => m.id === id);
+  if (!membro) return;
+
+  const btn = document.getElementById('btnGerarImagem' + id);
+  if (btn) { btn.disabled = true; btn.dataset.textoOriginal = btn.innerHTML; btn.innerHTML = '⏳ Gerando...'; }
+
+  mostrarToast('🖼️ Gerando imagem...');
+
+  try {
+    const canvas = await gerarCanvasAniversario(membro);
+
+    const blob = await new Promise(function(res){ canvas.toBlob(res, 'image/png'); });
+    if (!blob) throw new Error('Canvas retornou blob nulo');
+
+    const nomeArq = 'Aniversario_' + membro.nome.replace(/\s+/g,'_') + '.png';
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = nomeArq;
+    a.click();
+    URL.revokeObjectURL(url);
+
+    mostrarToast('✅ Imagem gerada com sucesso!');
+  } catch (err) {
+    console.error('Erro ao gerar imagem de aniversário:', err);
+    mostrarModalAviso(
+      'Erro ao gerar imagem',
+      'Não foi possível gerar a imagem de aniversário agora. Aguarde alguns instantes e tente novamente.',
+      '❌'
+    );
+  } finally {
+    if (btn) { btn.disabled = false; btn.innerHTML = btn.dataset.textoOriginal || '🖼️ Gerar imagem'; }
+  }
+}
+
+// ══════════════════ PRÉVIA DA IMAGEM DE ANIVERSÁRIO (aba Membros) ══════════════════
+// Permite ver, a qualquer momento, como ficaria o cartão + mensagem de um
+// membro "fazendo aniversário hoje" — mesmo fora da data real —, com opção
+// de baixar a imagem e copiar a mensagem. Só fica disponível para membros
+// com foto cadastrada (sem foto não há como montar o cartão).
+let blobPreviewAniv = null;
+let membroPreviewAnivAtual = null;
+
+async function abrirPreviewAniversario(id) {
+  const membros = loadMembros();
+  const membro = membros.find(m => m.id === id);
+  if (!membro || !membro.foto) return;
+
+  membroPreviewAnivAtual = membro;
+  blobPreviewAniv = null;
+
+  const modal = document.getElementById('modalPreviewAniv');
+  const imgEl = document.getElementById('previewAnivImg');
+  const loadingEl = document.getElementById('previewAnivLoading');
+  const conteudoEl = document.getElementById('previewAnivConteudo');
+
+  document.getElementById('previewAnivNome').textContent = membro.nome;
+  document.getElementById('previewAnivMsg').value =
+    gerarMensagemAniversario(membro.nome, membro.sexo || 'F', membro.grupo || '');
+  imgEl.src = '';
+  loadingEl.style.display = 'flex';
+  conteudoEl.style.display = 'none';
+  modal.classList.add('on');
+
+  try {
+    const canvas = await gerarCanvasAniversario(membro);
+    const blob = await new Promise(function(res){ canvas.toBlob(res, 'image/png'); });
+    if (!blob) throw new Error('Canvas retornou blob nulo');
+    blobPreviewAniv = blob;
+    imgEl.src = URL.createObjectURL(blob);
+    loadingEl.style.display = 'none';
+    conteudoEl.style.display = 'block';
+  } catch (err) {
+    console.error('Erro ao gerar prévia de aniversário:', err);
+    fecharModalPreviewAniv();
+    mostrarModalAviso(
+      'Erro ao gerar prévia',
+      'Não foi possível gerar a prévia da imagem agora. Aguarde alguns instantes e tente novamente.',
+      '❌'
+    );
+  }
+}
+
+function fecharModalPreviewAniv() {
+  document.getElementById('modalPreviewAniv').classList.remove('on');
+  const imgEl = document.getElementById('previewAnivImg');
+  if (imgEl.src) { URL.revokeObjectURL(imgEl.src); imgEl.src = ''; }
+  blobPreviewAniv = null;
+  membroPreviewAnivAtual = null;
+}
+
+function baixarImagemPreviewAniv() {
+  if (!blobPreviewAniv || !membroPreviewAnivAtual) return;
+  const nomeArq = 'Aniversario_' + membroPreviewAnivAtual.nome.replace(/\s+/g,'_') + '.png';
+  const url = URL.createObjectURL(blobPreviewAniv);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = nomeArq;
+  a.click();
+  URL.revokeObjectURL(url);
+  mostrarToast('✅ Imagem baixada!');
+}
+
+function copiarMensagemPreviewAniv() {
+  const ta = document.getElementById('previewAnivMsg');
+  navigator.clipboard.writeText(ta.value).then(function(){
+    mostrarToast('Mensagem copiada!');
+  }).catch(function(){
+    ta.select();
+    document.execCommand('copy');
+    mostrarToast('Mensagem copiada!');
+  });
+}
+
+// ══════════════════ INIT ══════════════════
+renderMembrosLista();
+renderMembrosDoMes();
+popularDatalistMembros();
+mostrarBannerAniversario();
+mostrarAvisoProximosAniversarios();
+atualizarLogoIgrejaUI();
+renderFundosCartaoConfig();
+
+</script>
+
+</body>
+</html>
