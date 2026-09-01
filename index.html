@@ -329,6 +329,14 @@ body{background:#12203f;min-height:100vh;}
   background:radial-gradient(circle at 32% 28%,#ffe8a8,#e8b93e 55%,#a9781f 100%);
 }
 .aniv-card-star{position:absolute;color:#f0d080;text-shadow:0 0 12px rgba(240,208,128,.6);}
+/* Fundo personalizado (enviado na aba Configurações): renderizado como <img> real,
+   e não como CSS background-image, porque o html2canvas não captura de forma
+   confiável um background-image aplicado via JS sobre um gradiente CSS — o
+   mesmo motivo pelo qual a foto do membro já usa <img> em vez de object-fit. */
+.aniv-card-fundo-img{
+  position:absolute;top:0;left:0;width:100%;height:100%;
+  object-fit:cover;display:block;z-index:0;
+}
 .aniv-card-frame{
   position:absolute;top:260px;left:88px;right:88px;
   height:760px;background:#fff;border-radius:6px;padding:16px;
@@ -2737,24 +2745,17 @@ async function montarCartaoAniversario(membro) {
   area.className = categoriaClasse || '';
 
   // Se o usuário enviou um fundo personalizado para esta categoria (aba ⚙️
-  // Configurações), sobrepõe o fundo padrão definido em CSS via estilo inline.
+  // Configurações), ele é inserido como um <img> real (primeiro elemento do
+  // cartão, atrás de tudo) em vez de um CSS background-image. O html2canvas
+  // não captura de forma confiável um background-image aplicado via JS sobre
+  // o gradiente padrão da categoria — a imagem enviada às vezes "sumia" e o
+  // cartão caía de volta no gradiente. Um <img> normal, decodificado junto
+  // com os demais (foto do membro, logo) antes da captura, resolve isso —
+  // é a mesma técnica já usada para a foto do membro.
   const fundoCustom = loadFundoCartao(categoriaClasse);
-  if (fundoCustom) {
-    // Pré-carrega/decodifica a imagem de fundo ANTES de aplicá-la, assim como
-    // é feito com as fotos <img> — evita que o html2canvas capture o card
-    // antes do navegador terminar de decodificar o data URL do fundo (o que
-    // fazia o card cair no gradiente padrão da categoria em vez da foto).
-    try {
-      const imgFundo = new Image();
-      imgFundo.src = fundoCustom;
-      if (imgFundo.decode) { await imgFundo.decode().catch(function(){}); }
-      else if (!imgFundo.complete) { await new Promise(function(res){ imgFundo.onload = res; imgFundo.onerror = res; }); }
-    } catch (e) {}
-    area.style.setProperty('background-image', "url('" + fundoCustom + "')", 'important');
-    area.style.setProperty('background-size', 'cover', 'important');
-    area.style.setProperty('background-position', 'center', 'important');
-    area.style.setProperty('background-repeat', 'no-repeat', 'important');
-  }
+  const fundoImgHtml = fundoCustom
+    ? '<img class="aniv-card-fundo-img" src="' + fundoCustom + '" alt="">'
+    : '';
 
   // Usa a MESMA moldura (formato/proporção) escolhida no cadastro do membro
   // para o recorte do cartão — assim o enquadramento ajustado no editor de
@@ -2804,7 +2805,8 @@ async function montarCartaoAniversario(membro) {
     : '';
 
   area.innerHTML =
-      '<div class="aniv-card-deco-1"></div>'
+      fundoImgHtml
+    + '<div class="aniv-card-deco-1"></div>'
     + '<div class="aniv-card-deco-2"></div>'
     + '<div class="aniv-card-star" style="left:70px;top:640px;font-size:60px;">⭐</div>'
     + '<div class="aniv-card-star" style="right:60px;top:60px;font-size:44px;">⭐</div>'
@@ -2854,9 +2856,7 @@ async function gerarCanvasAniversario(membro) {
   } finally {
     area.innerHTML = '';
     area.className = '';
-    area.style.backgroundImage = '';
-    area.style.backgroundSize = '';
-    area.style.backgroundPosition = '';
+    area.style.cssText = '';
   }
 }
 
