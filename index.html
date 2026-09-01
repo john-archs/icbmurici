@@ -213,15 +213,15 @@ body{background:#12203f;min-height:100vh;}
   width:64px;height:80px;border-radius:8px;overflow:hidden;flex-shrink:0;
   display:flex;align-items:center;justify-content:center;
   font-size:22px;border:1.5px solid var(--bd);
-  background-size:contain;background-position:center;background-repeat:no-repeat;
+  background-size:100% 100% !important;background-position:center !important;background-repeat:no-repeat !important;
   background-color:#0000001a;
 }
-.fundo-preview.cartao-adulto-homem{ background:linear-gradient(160deg,#0d1650 0%,#1a2a7a 55%,#2438a0 100%); }
-.fundo-preview.cartao-adulto-mulher{ background:linear-gradient(160deg,#7a0d2e 0%,#b3235c 55%,#e0568f 100%); }
-.fundo-preview.cartao-kids-menina{ background:linear-gradient(160deg,#ffd3e6 0%,#ffb8d9 55%,#ff9fce 100%); }
-.fundo-preview.cartao-kids-menino{ background:linear-gradient(160deg,#cfe8ff 0%,#a9d6ff 55%,#8ac4ff 100%); }
-.fundo-preview.cartao-teens-menina{ background:linear-gradient(160deg,#5c0a2e 0%,#7a0f3d 55%,#9c1450 100%); }
-.fundo-preview.cartao-teens-menino{ background:linear-gradient(160deg,#0a1a3d 0%,#102a5c 55%,#163a7a 100%); }
+.fundo-preview.cartao-adulto-homem{ background-image:linear-gradient(160deg,#0d1650 0%,#1a2a7a 55%,#2438a0 100%); }
+.fundo-preview.cartao-adulto-mulher{ background-image:linear-gradient(160deg,#7a0d2e 0%,#b3235c 55%,#e0568f 100%); }
+.fundo-preview.cartao-kids-menina{ background-image:linear-gradient(160deg,#ffd3e6 0%,#ffb8d9 55%,#ff9fce 100%); }
+.fundo-preview.cartao-kids-menino{ background-image:linear-gradient(160deg,#cfe8ff 0%,#a9d6ff 55%,#8ac4ff 100%); }
+.fundo-preview.cartao-teens-menina{ background-image:linear-gradient(160deg,#5c0a2e 0%,#7a0f3d 55%,#9c1450 100%); }
+.fundo-preview.cartao-teens-menino{ background-image:linear-gradient(160deg,#0a1a3d 0%,#102a5c 55%,#163a7a 100%); }
 .fundo-preview img{width:100%;height:100%;object-fit:cover;display:block;}
 .fundo-info{flex:1;min-width:140px;}
 .fundo-titulo{font-weight:800;font-size:13.5px;color:var(--tx);margin-bottom:2px;}
@@ -686,6 +686,7 @@ header p{font-size:12px;opacity:.75;margin-top:2px;}
 
 /* ── MODAL PRÉVIA DA IMAGEM DE ANIVERSÁRIO ── */
 .modal-preview-box{
+  position:relative;
   background:#fff;border-radius:16px;
   padding:20px 20px 18px;
   max-width:340px;width:90%;max-height:88vh;overflow-y:auto;
@@ -693,6 +694,15 @@ header p{font-size:12px;opacity:.75;margin-top:2px;}
   transform:scale(.95);transition:transform .2s;
   text-align:center;
 }
+.btn-preview-fechar-x{
+  position:absolute;top:10px;right:10px;z-index:5;
+  width:28px;height:28px;border-radius:50%;
+  background:#c0392b;color:#fff;border:none;
+  font-size:14px;line-height:1;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  transition:background .15s;
+}
+.btn-preview-fechar-x:hover{background:#a53125;}
 .modal-overlay.on .modal-preview-box{transform:scale(1);}
 .preview-aniv-titulo{font-size:15px;font-weight:800;color:var(--azul);margin-bottom:12px;display:flex;align-items:center;gap:6px;justify-content:center;}
 .preview-aniv-loading{
@@ -1314,6 +1324,7 @@ header p{font-size:12px;opacity:.75;margin-top:2px;}
 <!-- MODAL PRÉVIA DA IMAGEM DE ANIVERSÁRIO -->
 <div class="modal-overlay" id="modalPreviewAniv">
   <div class="modal-preview-box">
+    <button type="button" class="btn-preview-fechar-x" onclick="fecharModalPreviewAniv()" aria-label="Fechar">✕</button>
     <div class="preview-aniv-titulo">🎂 Prévia — <span id="previewAnivNome"></span></div>
 
     <div class="preview-aniv-loading" id="previewAnivLoading">
@@ -1655,6 +1666,13 @@ function mensagemErroSincronizacao(e) {
 async function nuvemPush() {
   const url = getSheetsUrl();
   if (!url) return;
+  // Evita que uma busca automática da nuvem (nuvemPull, disparada a cada 60s)
+  // rode ao mesmo tempo que este envio e sobrescreva localmente uma imagem
+  // recém-enviada com a versão antiga que ainda está na planilha (o envio de
+  // imagens grandes pode demorar, abrindo essa janela de corrida). Espera
+  // qualquer sincronização em andamento terminar antes de começar a sua.
+  while (sincronizandoAgora) { await new Promise(function(res){ setTimeout(res, 300); }); }
+  sincronizandoAgora = true;
   try {
     const payload = { membros: loadMembros(), logo: loadLogoIgreja(), fundos: {} };
     CATEGORIAS_FUNDO.forEach(function(cat) { payload.fundos[cat.chave] = loadFundoCartao(cat.chave); });
@@ -1683,6 +1701,8 @@ async function nuvemPush() {
   } catch (e) {
     console.error('Falha ao sincronizar (push):', e);
     atualizarStatusSincronizacao('⚠️ Salvo neste aparelho, mas falhou ao enviar para a nuvem — ' + mensagemErroSincronizacao(e).replace('⚠️ ', ''));
+  } finally {
+    sincronizandoAgora = false;
   }
 }
 
