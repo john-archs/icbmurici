@@ -1580,7 +1580,22 @@ async function nuvemPull(avisar) {
       throw new Error('resposta_nao_json:' + resp.status);
     }
     if (data && data.ok) {
-      if (Array.isArray(data.membros)) localStorage.setItem(CHAVE_MEMBROS, JSON.stringify(data.membros));
+      const membrosNuvem = Array.isArray(data.membros) ? data.membros : [];
+      const membrosLocaisAtuais = loadMembros();
+      // Proteção contra perda de dados: se a nuvem estiver vazia mas este
+      // aparelho já tiver membros cadastrados, isso normalmente significa que
+      // ainda não houve nenhum envio bem-sucedido para a planilha (não que
+      // alguém apagou todo mundo de propósito). Nesse caso, em vez de apagar
+      // os dados locais, envia-os para a nuvem em vez de sobrescrever.
+      if (membrosNuvem.length === 0 && membrosLocaisAtuais.length > 0) {
+        atualizarStatusSincronizacao('📤 Nuvem estava vazia — enviando seus dados locais...');
+        sincronizandoAgora = false;
+        await nuvemPush();
+        if (avisar) mostrarToast('📤 Seus dados locais foram enviados para a nuvem (ela estava vazia).');
+        reRenderizarAposSincronizar();
+        return true;
+      }
+      localStorage.setItem(CHAVE_MEMBROS, JSON.stringify(membrosNuvem));
       if (data.logo) localStorage.setItem(CHAVE_LOGO_IGREJA, data.logo);
       else localStorage.setItem(CHAVE_LOGO_IGREJA, '__removida__');
       if (data.fundos) {
