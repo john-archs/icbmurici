@@ -2754,7 +2754,7 @@ async function montarCartaoAniversario(membro) {
   // é a mesma técnica já usada para a foto do membro.
   const fundoCustom = loadFundoCartao(categoriaClasse);
   const fundoImgHtml = fundoCustom
-    ? '<img class="aniv-card-fundo-img" src="' + fundoCustom + '" alt="">'
+    ? '<img class="aniv-card-fundo-img" src="' + fundoCustom + '" alt="" width="1080" height="1350">'
     : '';
 
   // Usa a MESMA moldura (formato/proporção) escolhida no cadastro do membro
@@ -2828,6 +2828,12 @@ async function montarCartaoAniversario(membro) {
     if (img.complete) return Promise.resolve();
     return new Promise(function(res){ img.onload = res; img.onerror = res; });
   }));
+  // Força o navegador a recalcular o layout depois que as imagens (em especial
+  // o fundo, que preenche 1080x1350 inteiros) já decodificaram. Sem isso, o
+  // html2canvas às vezes captura o card antes do <img> de fundo ter sido
+  // efetivamente pintado, resultando no gradiente padrão da categoria em vez
+  // da imagem enviada — mesmo sem nenhum erro visível.
+  imgs.forEach(function(img){ void img.getBoundingClientRect(); });
 
   return area;
 }
