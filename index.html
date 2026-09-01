@@ -1059,7 +1059,10 @@ header p{font-size:12px;opacity:.75;margin-top:2px;}
   <button class="tabbtn active" id="tabbtn-membros" onclick="mostrarAba('membros')">
     <span class="tab-ico">🎂</span> Membros
   </button>
-  <button class="tabbtn" id="tabbtn-config" onclick="mostrarAba('config')">
+  <button class="tabbtn" id="tabbtn-config" onclick="mostrarAba('config')"
+    oncontextmenu="return false;"
+    onmousedown="iniciarLongPressConfig()" onmouseup="cancelarLongPressConfig()" onmouseleave="cancelarLongPressConfig()"
+    ontouchstart="iniciarLongPressConfig()" ontouchend="cancelarLongPressConfig()" ontouchcancel="cancelarLongPressConfig()">
     <span class="tab-ico">⚙️</span> Config.
   </button>
 </div>
@@ -1238,7 +1241,7 @@ header p{font-size:12px;opacity:.75;margin-top:2px;}
   <p class="sub">Fundos dos cartões de aniversário e backup dos dados</p>
 </header>
 
-<div class="card" style="margin-bottom:14px;">
+<div class="card" id="painelSincronizacao" style="margin-bottom:14px; display:none;">
   <div class="lista-titulo"><span class="dot"></span> ☁️ Sincronização em nuvem (Google Sheets)</div>
   <div class="crop-dica" style="margin-bottom:10px;">
     Cole aqui o link do seu Apps Script (Google Sheets) para que os dados fiquem
@@ -1499,6 +1502,27 @@ function saveMembros(d) { localStorage.setItem(CHAVE_MEMBROS, JSON.stringify(d))
 // preferir que cada pessoa configure pela interface.
 const SHEETS_URL_PADRAO = '';
 
+// Painel de sincronização fica OCULTO por padrão (apenas quem sabe do
+// "segredo" consegue configurar/trocar o link). Para revelar, é preciso
+// pressionar e segurar o ícone ⚙️ Config. por 3 segundos. Ao atualizar a
+// página, ele volta a ficar oculto automaticamente (nada fica salvo sobre
+// isso — é sempre reavaliado do zero a cada carregamento).
+let timerLongPressConfig = null;
+function iniciarLongPressConfig() {
+  clearTimeout(timerLongPressConfig);
+  timerLongPressConfig = setTimeout(function() {
+    const painel = document.getElementById('painelSincronizacao');
+    if (painel) painel.style.display = 'block';
+    mostrarAba('config');
+    atualizarStatusSincronizacao();
+    mostrarToast('🔓 Configuração de sincronização liberada.');
+    if (navigator.vibrate) { try { navigator.vibrate(35); } catch (e) {} }
+  }, 3000);
+}
+function cancelarLongPressConfig() {
+  clearTimeout(timerLongPressConfig);
+}
+
 const CHAVE_SHEETS_URL = 'icb_sheets_url';
 function getSheetsUrl() {
   try { return localStorage.getItem(CHAVE_SHEETS_URL) || SHEETS_URL_PADRAO || ''; } catch(e) { return SHEETS_URL_PADRAO || ''; }
@@ -1546,7 +1570,15 @@ async function nuvemPull(avisar) {
   if (avisar) atualizarStatusSincronizacao('🔄 Sincronizando...');
   try {
     const resp = await fetch(url + (url.indexOf('?') > -1 ? '&' : '?') + 't=' + Date.now());
-    const data = await resp.json();
+    const texto = await resp.text();
+    let data;
+    try { data = JSON.parse(texto); }
+    catch (eParse) {
+      // O Apps Script devolveu algo que não é JSON — geralmente é uma página
+      // de login/permissão do Google, o que indica que a implantação não
+      // está com acesso "Qualquer pessoa", ou a URL colada está errada.
+      throw new Error('resposta_nao_json:' + resp.status);
+    }
     if (data && data.ok) {
       if (Array.isArray(data.membros)) localStorage.setItem(CHAVE_MEMBROS, JSON.stringify(data.membros));
       if (data.logo) localStorage.setItem(CHAVE_LOGO_IGREJA, data.logo);
@@ -1568,11 +1600,23 @@ async function nuvemPull(avisar) {
     throw new Error((data && data.erro) || 'resposta inválida');
   } catch (e) {
     console.error('Falha ao sincronizar (pull):', e);
-    atualizarStatusSincronizacao('⚠️ Falha ao sincronizar.');
-    if (avisar) mostrarToast('⚠️ Não foi possível sincronizar com a nuvem.');
+    atualizarStatusSincronizacao(mensagemErroSincronizacao(e));
+    if (avisar) mostrarToast('⚠️ ' + mensagemErroSincronizacao(e));
     sincronizandoAgora = false;
     return false;
   }
+}
+
+// Traduz o erro técnico em uma dica útil sobre o que checar.
+function mensagemErroSincronizacao(e) {
+  const msg = String((e && e.message) || e || '');
+  if (msg.indexOf('resposta_nao_json') === 0) {
+    return '⚠️ O link não respondeu como esperado. Confira: (1) a implantação está com acesso "Qualquer pessoa"; (2) o link colado termina em /exec; (3) foi feita uma nova implantação após editar o script.';
+  }
+  if (msg.indexOf('Failed to fetch') > -1 || msg.indexOf('NetworkError') > -1) {
+    return '⚠️ Não foi possível conectar. Verifique sua internet e se o link está correto.';
+  }
+  return '⚠️ Falha ao sincronizar: ' + msg;
 }
 
 // Envia os dados deste aparelho para a planilha (disparado automaticamente a
@@ -1586,7 +1630,10 @@ async function nuvemPush() {
     // Envia como texto puro (não "application/json") para evitar bloqueio de
     // CORS pelo navegador — o Apps Script lê e interpreta o JSON normalmente.
     const resp = await fetch(url, { method: 'POST', body: JSON.stringify(payload) });
-    const data = await resp.json();
+    const texto = await resp.text();
+    let data;
+    try { data = JSON.parse(texto); }
+    catch (eParse) { throw new Error('resposta_nao_json:' + resp.status); }
     if (data && data.ok) {
       // Adota a versão "resolvida" devolvida pelo servidor (fotos já convertidas
       // em links do Google Drive), evitando reenviar a mesma imagem depois.
@@ -1604,7 +1651,7 @@ async function nuvemPush() {
     }
   } catch (e) {
     console.error('Falha ao sincronizar (push):', e);
-    atualizarStatusSincronizacao('⚠️ Salvo neste aparelho, mas falhou ao enviar para a nuvem.');
+    atualizarStatusSincronizacao('⚠️ Salvo neste aparelho, mas falhou ao enviar para a nuvem — ' + mensagemErroSincronizacao(e).replace('⚠️ ', ''));
   }
 }
 
