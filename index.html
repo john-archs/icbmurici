@@ -1787,19 +1787,44 @@ function atualizarPreviewFotoMembro() {
 // aplicando o enquadramento manual (zoom/posição). Como o resultado já sai com
 // a proporção certa, não é preciso depender de object-fit (que o html2canvas
 // nem sempre respeita corretamente, causando fotos esticadas/distorcidas).
+// Carrega uma <img> de forma seguindo para uso em <canvas>, mesmo quando a
+// foto é um link remoto do Google Drive (fotos já sincronizadas com a nuvem).
+// O Drive não envia cabeçalhos CORS, então pedir a imagem com
+// crossOrigin="anonymous" direto nele falha (a imagem nem chega a carregar,
+// por isso o cartão cai no placeholder mesmo a foto existindo nos dados).
+// Como solução, se a tentativa direta falhar, refaz a requisição através de
+// um proxy de imagens público (images.weserv.nl) que busca a imagem original
+// e a devolve com os cabeçalhos CORS liberados — permitindo desenhar no
+// canvas e gerar o cartão/prévia normalmente. URLs "data:" (foto local, ainda
+// não sincronizada) não passam por nada disso e carregam direto.
+function carregarImagemParaCanvas(fotoSrc) {
+  return new Promise(function(resolve, reject) {
+    function tentar(src, usarCors, ehUltimaTentativa) {
+      const img = new Image();
+      if (usarCors) img.crossOrigin = 'anonymous';
+      img.onload = function() { resolve(img); };
+      img.onerror = function() {
+        if (ehUltimaTentativa) {
+          reject(new Error('Falha ao carregar imagem para recorte'));
+          return;
+        }
+        // Segunda tentativa: via proxy de imagens com CORS liberado.
+        const urlSemProtocolo = src.replace(/^https?:\/\//i, '');
+        const proxied = 'https://images.weserv.nl/?url=' + encodeURIComponent(urlSemProtocolo);
+        tentar(proxied, true, true);
+      };
+      img.src = src;
+    }
+    if (!fotoSrc) { reject(new Error('Sem foto')); return; }
+    if (/^data:/i.test(fotoSrc)) { tentar(fotoSrc, false, true); }
+    else { tentar(fotoSrc, true, false); }
+  });
+}
+
 function gerarRecorteFoto(fotoSrc, crop, outW, outH) {
   return new Promise(function(resolve, reject){
     if (!fotoSrc) { resolve(null); return; }
-    const img = new Image();
-    // Fotos que vieram da sincronização em nuvem (Google Drive) são uma URL
-    // remota (não "data:"), então o navegador trata como origem cruzada.
-    // Sem isto, o desenho no <canvas> funciona (a imagem aparece na tela),
-    // mas o canvas.toDataURL() logo abaixo é bloqueado ("tainted canvas") e
-    // cai silenciosamente no catch — por isso a foto some só no cartão/prévia
-    // gerados, mesmo a foto existindo nos dados. Em URLs "data:" (foto local,
-    // ainda não sincronizada) este atributo não tem efeito nenhum.
-    if (!/^data:/i.test(fotoSrc)) { img.crossOrigin = 'anonymous'; }
-    img.onload = function() {
+    carregarImagemParaCanvas(fotoSrc).then(function(img) {
       try {
         const iw = img.naturalWidth || img.width, ih = img.naturalHeight || img.height;
         const zoom = (crop && crop.zoom) || 1;
@@ -1818,9 +1843,7 @@ function gerarRecorteFoto(fotoSrc, crop, outW, outH) {
         ctx.drawImage(img, sx, sy, sw, sh, 0, 0, outW, outH);
         resolve(canvas.toDataURL('image/jpeg', 0.92));
       } catch (err) { reject(err); }
-    };
-    img.onerror = function(){ reject(new Error('Falha ao carregar imagem para recorte')); };
-    img.src = fotoSrc;
+    }).catch(reject);
   });
 }
 
