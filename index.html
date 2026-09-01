@@ -4,7 +4,6 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>ICB Murici — Painel</title>
-<link rel="icon" type="image/png" href="logo.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@600;700&family=Poppins:wght@800;900&family=Playfair+Display:ital,wght@0,700;0,900;1,700;1,900&family=Baloo+2:wght@600;700;800&family=Montserrat:wght@800;900&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
@@ -1239,6 +1238,23 @@ header p{font-size:12px;opacity:.75;margin-top:2px;}
   <p class="sub">Fundos dos cartões de aniversário e backup dos dados</p>
 </header>
 
+<div class="card" style="margin-bottom:14px;">
+  <div class="lista-titulo"><span class="dot"></span> ☁️ Sincronização em nuvem (Google Sheets)</div>
+  <div class="crop-dica" style="margin-bottom:10px;">
+    Cole aqui o link do seu Apps Script (Google Sheets) para que os dados fiquem
+    salvos na nuvem e atualizados para todos que acessarem este painel.
+  </div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;">
+    <input type="text" id="inputSheetsUrl" placeholder="Cole aqui a URL do Web App (termina em /exec)"
+      style="flex:1;min-width:220px;padding:9px 12px;border-radius:9px;border:1.5px solid var(--bd);background:var(--bg);color:var(--tx);font-size:12.5px;">
+    <button class="btn-json" onclick="salvarUrlSheetsUI()">💾 Salvar link</button>
+  </div>
+  <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+    <button class="btn-json" onclick="nuvemPull(true)">🔄 Sincronizar agora</button>
+    <span id="statusSincronizacao" style="font-size:12px;color:var(--muted);"></span>
+  </div>
+</div>
+
 <div class="card">
   <div class="lista-titulo"><span class="dot"></span> Fundos dos cartões por categoria</div>
   <div class="crop-dica" style="margin-bottom:10px;">
@@ -1474,7 +1490,123 @@ let paginaMembrosAtual = 1;
 function loadMembros() {
   try { return JSON.parse(localStorage.getItem(CHAVE_MEMBROS) || "[]"); } catch(e) { return []; }
 }
-function saveMembros(d) { localStorage.setItem(CHAVE_MEMBROS, JSON.stringify(d)); }
+function saveMembros(d) { localStorage.setItem(CHAVE_MEMBROS, JSON.stringify(d)); nuvemPush(); }
+
+// ══════════════════ SINCRONIZAÇÃO EM NUVEM (GOOGLE SHEETS) ══════════════════
+// Cole aqui a URL do seu Apps Script já publicado (termina em /exec) para que
+// TODOS que abrirem este mesmo arquivo já sincronizem automaticamente, sem
+// precisar colar o link manualmente na aba Config. Deixe em branco ('') se
+// preferir que cada pessoa configure pela interface.
+const SHEETS_URL_PADRAO = '';
+
+const CHAVE_SHEETS_URL = 'icb_sheets_url';
+function getSheetsUrl() {
+  try { return localStorage.getItem(CHAVE_SHEETS_URL) || SHEETS_URL_PADRAO || ''; } catch(e) { return SHEETS_URL_PADRAO || ''; }
+}
+function salvarUrlSheets(url) { try { localStorage.setItem(CHAVE_SHEETS_URL, (url || '').trim()); } catch(e) {} }
+function salvarUrlSheetsUI() {
+  const campo = document.getElementById('inputSheetsUrl');
+  salvarUrlSheets(campo.value);
+  mostrarToast('🔗 Link salvo! Sincronizando...');
+  nuvemPull(true);
+}
+
+let sincronizandoAgora = false;
+let ultimaSincronizacaoOk = null;
+
+function atualizarStatusSincronizacao(msg) {
+  const el = document.getElementById('statusSincronizacao');
+  const campo = document.getElementById('inputSheetsUrl');
+  if (campo && document.activeElement !== campo) campo.value = getSheetsUrl();
+  if (!el) return;
+  if (msg) { el.textContent = msg; return; }
+  if (!getSheetsUrl()) { el.textContent = 'Nenhum link configurado — os dados ficam só neste aparelho.'; return; }
+  el.textContent = ultimaSincronizacaoOk
+    ? ('✅ Sincronizado às ' + ultimaSincronizacaoOk.toLocaleTimeString('pt-BR'))
+    : 'Ainda não sincronizado.';
+}
+
+// Re-renderiza as partes da tela que dependem dos dados sincronizados.
+function reRenderizarAposSincronizar() {
+  if (typeof renderMembrosLista === 'function') renderMembrosLista();
+  if (typeof renderMembrosDoMes === 'function') renderMembrosDoMes();
+  if (typeof popularDatalistMembros === 'function') popularDatalistMembros();
+  if (typeof mostrarBannerAniversario === 'function') mostrarBannerAniversario();
+  if (typeof mostrarAvisoProximosAniversarios === 'function') mostrarAvisoProximosAniversarios();
+  if (typeof atualizarLogoIgrejaUI === 'function') atualizarLogoIgrejaUI();
+  if (typeof renderFundosCartaoConfig === 'function') renderFundosCartaoConfig();
+}
+
+// Busca os dados mais recentes da planilha e atualiza este aparelho.
+async function nuvemPull(avisar) {
+  const url = getSheetsUrl();
+  if (!url) { atualizarStatusSincronizacao(); return false; }
+  if (sincronizandoAgora) return false;
+  sincronizandoAgora = true;
+  if (avisar) atualizarStatusSincronizacao('🔄 Sincronizando...');
+  try {
+    const resp = await fetch(url + (url.indexOf('?') > -1 ? '&' : '?') + 't=' + Date.now());
+    const data = await resp.json();
+    if (data && data.ok) {
+      if (Array.isArray(data.membros)) localStorage.setItem(CHAVE_MEMBROS, JSON.stringify(data.membros));
+      if (data.logo) localStorage.setItem(CHAVE_LOGO_IGREJA, data.logo);
+      else localStorage.setItem(CHAVE_LOGO_IGREJA, '__removida__');
+      if (data.fundos) {
+        CATEGORIAS_FUNDO.forEach(function(cat) {
+          const v = data.fundos[cat.chave];
+          if (v) localStorage.setItem(CHAVE_FUNDO_PREFIX + cat.chave, v);
+          else localStorage.removeItem(CHAVE_FUNDO_PREFIX + cat.chave);
+        });
+      }
+      ultimaSincronizacaoOk = new Date();
+      atualizarStatusSincronizacao();
+      reRenderizarAposSincronizar();
+      if (avisar) mostrarToast('✅ Sincronizado com a nuvem!');
+      sincronizandoAgora = false;
+      return true;
+    }
+    throw new Error((data && data.erro) || 'resposta inválida');
+  } catch (e) {
+    console.error('Falha ao sincronizar (pull):', e);
+    atualizarStatusSincronizacao('⚠️ Falha ao sincronizar.');
+    if (avisar) mostrarToast('⚠️ Não foi possível sincronizar com a nuvem.');
+    sincronizandoAgora = false;
+    return false;
+  }
+}
+
+// Envia os dados deste aparelho para a planilha (disparado automaticamente a
+// cada alteração salva localmente — membros, logo, fundos).
+async function nuvemPush() {
+  const url = getSheetsUrl();
+  if (!url) return;
+  try {
+    const payload = { membros: loadMembros(), logo: loadLogoIgreja(), fundos: {} };
+    CATEGORIAS_FUNDO.forEach(function(cat) { payload.fundos[cat.chave] = loadFundoCartao(cat.chave); });
+    // Envia como texto puro (não "application/json") para evitar bloqueio de
+    // CORS pelo navegador — o Apps Script lê e interpreta o JSON normalmente.
+    const resp = await fetch(url, { method: 'POST', body: JSON.stringify(payload) });
+    const data = await resp.json();
+    if (data && data.ok) {
+      // Adota a versão "resolvida" devolvida pelo servidor (fotos já convertidas
+      // em links do Google Drive), evitando reenviar a mesma imagem depois.
+      if (Array.isArray(data.membros)) localStorage.setItem(CHAVE_MEMBROS, JSON.stringify(data.membros));
+      if (data.logo) localStorage.setItem(CHAVE_LOGO_IGREJA, data.logo);
+      if (data.fundos) {
+        CATEGORIAS_FUNDO.forEach(function(cat) {
+          if (data.fundos[cat.chave]) localStorage.setItem(CHAVE_FUNDO_PREFIX + cat.chave, data.fundos[cat.chave]);
+        });
+      }
+      ultimaSincronizacaoOk = new Date();
+      atualizarStatusSincronizacao();
+    } else {
+      throw new Error((data && data.erro) || 'resposta inválida');
+    }
+  } catch (e) {
+    console.error('Falha ao sincronizar (push):', e);
+    atualizarStatusSincronizacao('⚠️ Salvo neste aparelho, mas falhou ao enviar para a nuvem.');
+  }
+}
 
 // ══════════════════ FOTO DO MEMBRO — SELEÇÃO, RECORTE E REDIMENSIONAMENTO ══════════════════
 let fotoAtualBase64 = null;                      // foto original (redimensionada, sem recorte) selecionada no formulário
@@ -2305,7 +2437,7 @@ function loadLogoIgreja() {
   } catch (e) { return null; }
 }
 function salvarLogoIgreja(dataURL) {
-  try { localStorage.setItem(CHAVE_LOGO_IGREJA, dataURL); } catch (e) {
+  try { localStorage.setItem(CHAVE_LOGO_IGREJA, dataURL); nuvemPush(); } catch (e) {
     mostrarModalAviso('Não foi possível salvar a logo', 'O navegador recusou salvar a imagem (arquivo muito grande). Tente uma logo menor.', '❌');
   }
 }
@@ -2350,7 +2482,7 @@ function selecionarLogoIgreja(input) {
 }
 function removerLogoIgreja(ev) {
   if (ev) ev.stopPropagation();
-  try { localStorage.setItem(CHAVE_LOGO_IGREJA, '__removida__'); } catch (e) {}
+  try { localStorage.setItem(CHAVE_LOGO_IGREJA, '__removida__'); nuvemPush(); } catch (e) {}
   atualizarLogoIgrejaUI();
   mostrarBannerAniversario();
   mostrarToast('Logo removida.');
@@ -2379,12 +2511,13 @@ function loadFundoCartao(categoriaClasse) {
 function salvarFundoCartao(categoriaClasse, dataURL) {
   try {
     localStorage.setItem(CHAVE_FUNDO_PREFIX + categoriaClasse, dataURL);
+    nuvemPush();
   } catch (e) {
     mostrarModalAviso('Não foi possível salvar o fundo', 'O navegador recusou salvar a imagem (arquivo muito grande). Tente uma imagem menor.', '❌');
   }
 }
 function removerFundoCartao(categoriaClasse) {
-  try { localStorage.removeItem(CHAVE_FUNDO_PREFIX + categoriaClasse); } catch (e) {}
+  try { localStorage.removeItem(CHAVE_FUNDO_PREFIX + categoriaClasse); nuvemPush(); } catch (e) {}
   renderFundosCartaoConfig();
   mostrarToast('Fundo removido — voltando ao padrão.');
 }
@@ -2734,6 +2867,15 @@ mostrarBannerAniversario();
 mostrarAvisoProximosAniversarios();
 atualizarLogoIgrejaUI();
 renderFundosCartaoConfig();
+
+// Sincronização em nuvem: busca os dados mais recentes assim que a página
+// abre (o painel já foi desenhado acima com o que houver salvo neste
+// aparelho, e é atualizado de novo assim que a nuvem responder) e continua
+// verificando periodicamente para refletir alterações feitas por outras
+// pessoas sem precisar recarregar a página.
+atualizarStatusSincronizacao();
+nuvemPull(false);
+setInterval(function() { nuvemPull(false); }, 60000);
 
 </script>
 
