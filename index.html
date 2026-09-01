@@ -1500,7 +1500,7 @@ function saveMembros(d) { localStorage.setItem(CHAVE_MEMBROS, JSON.stringify(d))
 // TODOS que abrirem este mesmo arquivo já sincronizem automaticamente, sem
 // precisar colar o link manualmente na aba Config. Deixe em branco ('') se
 // preferir que cada pessoa configure pela interface.
-const SHEETS_URL_PADRAO = '';
+const SHEETS_URL_PADRAO = 'https://script.google.com/macros/s/AKfycbx5IpdCEp4StudbMpPefhGbO9keWqsuZOoCiE4bOg-iOYd3NcdDE3RtQPPt_Gyt5x7M5g/exec';
 
 // Painel de sincronização fica OCULTO por padrão (apenas quem sabe do
 // "segredo" consegue configurar/trocar o link). Para revelar, é preciso
@@ -1969,14 +1969,23 @@ function diasNoMes(mes, ano) {
 }
 
 // Validação completa da data de nascimento (dd/mm ou dd/mm/aaaa).
+// Também aceita, por compatibilidade, datas antigas salvas no formato
+// aaaa/mm/dd ou aaaa-mm-dd (ano na frente) — nesse caso a data é
+// automaticamente reconhecida e convertida internamente para dd/mm/aaaa.
 // Retorna { ok:true, dia, mes, ano } quando válida, ou { ok:false, erro }
 // com uma mensagem clara explicando o motivo da rejeição.
 function validarNascimento(str) {
   const s = (str || "").trim();
-  const p = s.split("/");
+  let p = s.split(/[\/\-]/);
 
   if (p.length < 2 || p.length > 3 || p.some(x => x === "")) {
     return { ok: false, erro: "Informe uma data válida (dd/mm ou dd/mm/aaaa)." };
+  }
+
+  // Formato legado com o ano na frente (aaaa/mm/dd ou aaaa-mm-dd): reordena
+  // para dia/mês/ano antes de seguir com a validação normal.
+  if (p.length === 3 && p[0].length === 4 && !isNaN(parseInt(p[0], 10))) {
+    p = [p[2], p[1], p[0]];
   }
 
   const dia = parseInt(p[0], 10);
@@ -2077,7 +2086,7 @@ function editarMembro(id) {
   molduraAtualMembro = m.moldura || MOLDURA_PADRAO;
   document.getElementById("inputNomeMembro").value = m.nome;
   document.getElementById("inputSexoMembro").value = m.sexo || "F";
-  document.getElementById("inputNascimentoMembro").value = m.nascimento;
+  document.getElementById("inputNascimentoMembro").value = formatarNascimentoLabel(m.nascimento);
   document.getElementById("inputGrupoMembro").value = m.grupo || "";
   atualizarPreviewFotoMembro();
   document.getElementById("membroFormTitulo").textContent = "Editar membro";
