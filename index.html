@@ -1562,6 +1562,11 @@ function salvarUrlSheetsUI() {
 
 let sincronizandoAgora = false;
 let ultimaSincronizacaoOk = null;
+// Guarda, por categoria, o instante (Date.now()) do último upload local de
+// fundo — usado por nuvemPull para não sobrescrever um upload recente com
+// uma resposta da nuvem que começou a ser buscada antes dele (ver comentário
+// em salvarFundoCartao).
+let fundoUltimaAlteracaoLocal = {};
 
 function atualizarStatusSincronizacao(msg) {
   const el = document.getElementById('statusSincronizacao');
@@ -1592,6 +1597,12 @@ async function nuvemPull(avisar) {
   if (!url) { atualizarStatusSincronizacao(); return false; }
   if (sincronizandoAgora) return false;
   sincronizandoAgora = true;
+  // Marca o instante em que ESTA busca começou. Se, enquanto ela estiver em
+  // andamento, o usuário enviar um novo fundo, o registro em
+  // fundoUltimaAlteracaoLocal ficará mais recente que este valor — sinal de
+  // que a resposta que está a caminho já está desatualizada para aquela
+  // categoria, e não deve sobrescrever o upload novo.
+  const pullIniciadoEm = Date.now();
   if (avisar) atualizarStatusSincronizacao('🔄 Sincronizando...');
   try {
     const resp = await fetch(url + (url.indexOf('?') > -1 ? '&' : '?') + 't=' + Date.now());
@@ -1626,7 +1637,8 @@ async function nuvemPull(avisar) {
       if (data.fundos) {
         CATEGORIAS_FUNDO.forEach(function(cat) {
           const v = data.fundos[cat.chave];
-          if (v) localStorage.setItem(CHAVE_FUNDO_PREFIX + cat.chave, v);
+          const alteradoDepoisDoPull = fundoUltimaAlteracaoLocal[cat.chave] && fundoUltimaAlteracaoLocal[cat.chave] > pullIniciadoEm;
+          if (v && !alteradoDepoisDoPull) localStorage.setItem(CHAVE_FUNDO_PREFIX + cat.chave, v);
           // Se a nuvem não devolveu esta categoria (ex.: backend antigo, ou
           // imagem grande demais para a célula da planilha), mantém a versão
           // local em vez de apagar — evita perder o fundo configurado.
@@ -2649,6 +2661,12 @@ function loadFundoCartao(categoriaClasse) {
 function salvarFundoCartao(categoriaClasse, dataURL) {
   try {
     localStorage.setItem(CHAVE_FUNDO_PREFIX + categoriaClasse, dataURL);
+    // Registra o instante exato desta alteração local. Usado por nuvemPull
+    // para descartar respostas da nuvem que começaram a ser buscadas ANTES
+    // deste salvamento — sem isso, uma sincronização automática que já
+    // estava em andamento (ex.: a que roda assim que a página abre) pode
+    // terminar depois deste upload e sobrescrevê-lo com a versão antiga.
+    fundoUltimaAlteracaoLocal[categoriaClasse] = Date.now();
     nuvemPush();
   } catch (e) {
     mostrarModalAviso('Não foi possível salvar o fundo', 'O navegador recusou salvar a imagem (arquivo muito grande). Tente uma imagem menor.', '❌');
