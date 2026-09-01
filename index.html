@@ -211,11 +211,16 @@ body{background:#12203f;min-height:100vh;}
 }
 .fundo-preview{
   width:64px;height:80px;border-radius:8px;overflow:hidden;flex-shrink:0;
-  background:linear-gradient(160deg,#0d1650 0%,#1a2a7a 55%,#2438a0 100%);
   display:flex;align-items:center;justify-content:center;
   font-size:22px;border:1.5px solid var(--bd);
   background-size:cover;background-position:center;
 }
+.fundo-preview.cartao-adulto-homem{ background:linear-gradient(160deg,#0d1650 0%,#1a2a7a 55%,#2438a0 100%); }
+.fundo-preview.cartao-adulto-mulher{ background:linear-gradient(160deg,#7a0d2e 0%,#b3235c 55%,#e0568f 100%); }
+.fundo-preview.cartao-kids-menina{ background:linear-gradient(160deg,#ffd3e6 0%,#ffb8d9 55%,#ff9fce 100%); }
+.fundo-preview.cartao-kids-menino{ background:linear-gradient(160deg,#cfe8ff 0%,#a9d6ff 55%,#8ac4ff 100%); }
+.fundo-preview.cartao-teens-menina{ background:linear-gradient(160deg,#5c0a2e 0%,#7a0f3d 55%,#9c1450 100%); }
+.fundo-preview.cartao-teens-menino{ background:linear-gradient(160deg,#0a1a3d 0%,#102a5c 55%,#163a7a 100%); }
 .fundo-preview img{width:100%;height:100%;object-fit:cover;display:block;}
 .fundo-info{flex:1;min-width:140px;}
 .fundo-titulo{font-weight:800;font-size:13.5px;color:var(--tx);margin-bottom:2px;}
@@ -1602,7 +1607,9 @@ async function nuvemPull(avisar) {
         CATEGORIAS_FUNDO.forEach(function(cat) {
           const v = data.fundos[cat.chave];
           if (v) localStorage.setItem(CHAVE_FUNDO_PREFIX + cat.chave, v);
-          else localStorage.removeItem(CHAVE_FUNDO_PREFIX + cat.chave);
+          // Se a nuvem não devolveu esta categoria (ex.: backend antigo, ou
+          // imagem grande demais para a célula da planilha), mantém a versão
+          // local em vez de apagar — evita perder o fundo configurado.
         });
       }
       ultimaSincronizacaoOk = new Date();
@@ -2635,7 +2642,7 @@ function renderFundosCartaoConfig() {
     const inputId = 'inputFundo_' + cat.chave;
     return ''
       + '<div class="fundo-item">'
-        + '<div class="fundo-preview"' + previewStyle + '>' + previewConteudo + '</div>'
+        + '<div class="fundo-preview ' + cat.chave + '"' + previewStyle + '>' + previewConteudo + '</div>'
         + '<div class="fundo-info">'
           + '<div class="fundo-titulo">' + cat.label + '</div>'
           + '<div class="fundo-status">' + statusTexto + '</div>'
