@@ -1638,10 +1638,18 @@ async function nuvemPull(avisar) {
         CATEGORIAS_FUNDO.forEach(function(cat) {
           const v = data.fundos[cat.chave];
           const alteradoDepoisDoPull = fundoUltimaAlteracaoLocal[cat.chave] && fundoUltimaAlteracaoLocal[cat.chave] > pullIniciadoEm;
-          if (v && !alteradoDepoisDoPull) localStorage.setItem(CHAVE_FUNDO_PREFIX + cat.chave, v);
+          // Só aceita o valor da nuvem se for uma imagem embutida (data:...).
+          // O backend às vezes devolve, em vez disso, um link do Google Drive
+          // (mesmo tratamento dado às fotos dos membros) — um link assim não
+          // carrega de forma confiável como <img>/Image() por causa de CORS,
+          // e sobrescrever o fundo local (que já é uma imagem válida) com ele
+          // é o que fazia o cartão "perder" o fundo configurado.
+          const ehImagemEmbutida = typeof v === 'string' && v.indexOf('data:') === 0;
+          if (ehImagemEmbutida && !alteradoDepoisDoPull) localStorage.setItem(CHAVE_FUNDO_PREFIX + cat.chave, v);
           // Se a nuvem não devolveu esta categoria (ex.: backend antigo, ou
-          // imagem grande demais para a célula da planilha), mantém a versão
-          // local em vez de apagar — evita perder o fundo configurado.
+          // imagem grande demais para a célula da planilha), ou devolveu um
+          // link em vez da imagem, mantém a versão local em vez de apagar —
+          // evita perder o fundo configurado.
         });
       }
       ultimaSincronizacaoOk = new Date();
@@ -1702,7 +1710,12 @@ async function nuvemPush() {
       if (data.logo) localStorage.setItem(CHAVE_LOGO_IGREJA, data.logo);
       if (data.fundos) {
         CATEGORIAS_FUNDO.forEach(function(cat) {
-          if (data.fundos[cat.chave]) localStorage.setItem(CHAVE_FUNDO_PREFIX + cat.chave, data.fundos[cat.chave]);
+          const v = data.fundos[cat.chave];
+          // Mesma proteção do nuvemPull: só aceita de volta uma imagem
+          // embutida (data:...), nunca um link do Drive no lugar do fundo.
+          if (typeof v === 'string' && v.indexOf('data:') === 0) {
+            localStorage.setItem(CHAVE_FUNDO_PREFIX + cat.chave, v);
+          }
         });
       }
       ultimaSincronizacaoOk = new Date();
@@ -2774,7 +2787,7 @@ function decoracoesCirculosTeens() {
     + '<div class="aniv-card-confete" style="right:190px;bottom:310px;">🎊</div>';
 }
 
-async function montarCartaoAniversario(membro) {
+async function montarCartaoAniversario(membro, fundoImgCarregada) {
   const area = document.getElementById('aniv-render-area');
 
   // Aplica a classe de fundo conforme sexo/categoria do membro (reseta antes,
@@ -2783,18 +2796,16 @@ async function montarCartaoAniversario(membro) {
   area.style.cssText = '';
   area.className = categoriaClasse || '';
 
-  // Se o usuário enviou um fundo personalizado para esta categoria (aba ⚙️
-  // Configurações), ele NÃO é inserido como <img> no DOM. Tentamos isso antes,
-  // mas o html2canvas não captura de forma confiável uma imagem grande usada
-  // como fundo do cartão — mesmo decodificada e com reflow forçado, ele às
-  // vezes "esquece" dela e volta a pintar o gradiente padrão da categoria por
-  // baixo do conteúdo. Em vez de depender do html2canvas para essa camada,
-  // deixamos o cartão com fundo TRANSPARENTE (abaixo) e guardamos a imagem em
-  // area.dataset.fundoCustom — gerarCanvasAniversario a desenha manualmente
+  // Se há um fundo personalizado JÁ CARREGADO com sucesso (ver
+  // gerarCanvasAniversario — o carregamento é feito antes de chamar esta
+  // função, para poder cair no gradiente padrão caso a imagem falhe), ele NÃO
+  // é inserido como <img> no DOM: o html2canvas não captura de forma confiável
+  // uma imagem grande usada como fundo do cartão — mesmo decodificada e com
+  // reflow forçado, às vezes "esquece" dela e volta a pintar o gradiente
+  // padrão por baixo do conteúdo. Em vez disso, deixamos o cartão com fundo
+  // TRANSPARENTE aqui e gerarCanvasAniversario desenha a imagem diretamente
   // no canvas final, por baixo do conteúdo capturado, com drawImage puro.
-  const fundoCustom = loadFundoCartao(categoriaClasse);
-  if (fundoCustom) area.style.background = 'transparent';
-  area.dataset.fundoCustom = fundoCustom || '';
+  if (fundoImgCarregada) area.style.background = 'transparent';
 
   // Usa a MESMA moldura (formato/proporção) escolhida no cadastro do membro
   // para o recorte do cartão — assim o enquadramento ajustado no editor de
@@ -2879,10 +2890,35 @@ async function montarCartaoAniversario(membro) {
 // Monta o cartão no DOM (montarCartaoAniversario) e o captura com html2canvas,
 // devolvendo o <canvas> pronto. Reutilizado tanto pelo download direto quanto
 // pela prévia em modal, para não duplicar a lógica de captura.
+// Pré-carrega o fundo personalizado da categoria do membro, se houver.
+// Feito ANTES de montar o cartão para que montarCartaoAniversario já saiba
+// se pode contar com essa imagem (fundo transparente) ou deve manter o
+// gradiente padrão da categoria (imagem ausente ou que falhou ao carregar —
+// por exemplo, se o valor salvo virou um link do Google Drive em vez de uma
+// imagem embutida, o que falha por causa de CORS). Uma falha aqui nunca deve
+// impedir a geração do cartão: ela só faz o cartão cair no fundo padrão.
+async function carregarFundoPersonalizado(categoriaClasse) {
+  const fundoCustom = loadFundoCartao(categoriaClasse);
+  if (!fundoCustom) return null;
+  try {
+    return await new Promise(function(resolve, reject) {
+      const img = new Image();
+      img.onload = function () { resolve(img); };
+      img.onerror = function () { reject(new Error('falha ao carregar imagem de fundo')); };
+      img.src = fundoCustom;
+    });
+  } catch (e) {
+    console.warn('Fundo personalizado não pôde ser carregado, usando o padrão da categoria:', e);
+    return null;
+  }
+}
+
 async function gerarCanvasAniversario(membro) {
   const area = document.getElementById('aniv-render-area');
+  const categoriaClasse = categoriaCartaoMembro(membro);
+  const fundoImg = await carregarFundoPersonalizado(categoriaClasse);
   try {
-    await montarCartaoAniversario(membro);
+    await montarCartaoAniversario(membro, !!fundoImg);
 
     // Aguarda as fontes (Poppins/Caveat) terminarem de carregar — capturar antes
     // disso é a causa mais comum de falhas intermitentes na primeira tentativa.
@@ -2900,31 +2936,29 @@ async function gerarCanvasAniversario(membro) {
       backgroundColor: null, width: 1080, height: 1350, windowWidth: 1080
     });
 
-    const fundoCustom = area.dataset.fundoCustom;
-    if (!fundoCustom) return canvasConteudo;
+    if (!fundoImg) return canvasConteudo;
 
     // Desenha o fundo personalizado diretamente no canvas final e o conteúdo
     // já capturado por cima — um composite manual em vez de depender do
     // html2canvas para renderizar essa camada de fundo.
-    const fundoImg = await new Promise(function(resolve, reject) {
-      const img = new Image();
-      img.onload = function () { resolve(img); };
-      img.onerror = reject;
-      img.src = fundoCustom;
-    });
-
-    const canvasFinal = document.createElement('canvas');
-    canvasFinal.width = canvasConteudo.width;
-    canvasFinal.height = canvasConteudo.height;
-    const ctx = canvasFinal.getContext('2d');
-    ctx.drawImage(fundoImg, 0, 0, canvasFinal.width, canvasFinal.height);
-    ctx.drawImage(canvasConteudo, 0, 0);
-    return canvasFinal;
+    try {
+      const canvasFinal = document.createElement('canvas');
+      canvasFinal.width = canvasConteudo.width;
+      canvasFinal.height = canvasConteudo.height;
+      const ctx = canvasFinal.getContext('2d');
+      ctx.drawImage(fundoImg, 0, 0, canvasFinal.width, canvasFinal.height);
+      ctx.drawImage(canvasConteudo, 0, 0);
+      return canvasFinal;
+    } catch (e) {
+      // Ex.: canvas "contaminado" por uma imagem cross-origin — devolve o
+      // cartão sem o fundo personalizado em vez de travar a geração.
+      console.warn('Não foi possível compor o fundo personalizado no canvas final:', e);
+      return canvasConteudo;
+    }
   } finally {
     area.innerHTML = '';
     area.className = '';
     area.style.cssText = '';
-    delete area.dataset.fundoCustom;
   }
 }
 
