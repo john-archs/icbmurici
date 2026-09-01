@@ -2726,19 +2726,27 @@ async function montarCartaoAniversario(membro) {
   // Aplica a classe de fundo conforme sexo/categoria do membro (reseta antes,
   // já que a área é reutilizada para gerar cartões de membros diferentes).
   const categoriaClasse = categoriaCartaoMembro(membro);
+  area.style.cssText = '';
   area.className = categoriaClasse || '';
 
   // Se o usuário enviou um fundo personalizado para esta categoria (aba ⚙️
   // Configurações), sobrepõe o fundo padrão definido em CSS via estilo inline.
   const fundoCustom = loadFundoCartao(categoriaClasse);
   if (fundoCustom) {
-    area.style.backgroundImage = "url('" + fundoCustom + "')";
-    area.style.backgroundSize = 'cover';
-    area.style.backgroundPosition = 'center';
-  } else {
-    area.style.backgroundImage = '';
-    area.style.backgroundSize = '';
-    area.style.backgroundPosition = '';
+    // Pré-carrega/decodifica a imagem de fundo ANTES de aplicá-la, assim como
+    // é feito com as fotos <img> — evita que o html2canvas capture o card
+    // antes do navegador terminar de decodificar o data URL do fundo (o que
+    // fazia o card cair no gradiente padrão da categoria em vez da foto).
+    try {
+      const imgFundo = new Image();
+      imgFundo.src = fundoCustom;
+      if (imgFundo.decode) { await imgFundo.decode().catch(function(){}); }
+      else if (!imgFundo.complete) { await new Promise(function(res){ imgFundo.onload = res; imgFundo.onerror = res; }); }
+    } catch (e) {}
+    area.style.setProperty('background-image', "url('" + fundoCustom + "')", 'important');
+    area.style.setProperty('background-size', 'cover', 'important');
+    area.style.setProperty('background-position', 'center', 'important');
+    area.style.setProperty('background-repeat', 'no-repeat', 'important');
   }
 
   // Usa a MESMA moldura (formato/proporção) escolhida no cadastro do membro
