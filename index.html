@@ -1791,6 +1791,14 @@ function gerarRecorteFoto(fotoSrc, crop, outW, outH) {
   return new Promise(function(resolve, reject){
     if (!fotoSrc) { resolve(null); return; }
     const img = new Image();
+    // Fotos que vieram da sincronização em nuvem (Google Drive) são uma URL
+    // remota (não "data:"), então o navegador trata como origem cruzada.
+    // Sem isto, o desenho no <canvas> funciona (a imagem aparece na tela),
+    // mas o canvas.toDataURL() logo abaixo é bloqueado ("tainted canvas") e
+    // cai silenciosamente no catch — por isso a foto some só no cartão/prévia
+    // gerados, mesmo a foto existindo nos dados. Em URLs "data:" (foto local,
+    // ainda não sincronizada) este atributo não tem efeito nenhum.
+    if (!/^data:/i.test(fotoSrc)) { img.crossOrigin = 'anonymous'; }
     img.onload = function() {
       try {
         const iw = img.naturalWidth || img.width, ih = img.naturalHeight || img.height;
