@@ -1201,7 +1201,7 @@ header p{font-size:12px;opacity:.75;margin-top:2px;}
     </div>
     <div class="campo">
       <label>🎂 Data de nascimento</label>
-      <input type="text" id="inputNascimentoMembro" placeholder="dd/mm/aaaa (ano é opcional)" maxlength="10" inputmode="numeric" oninput="formatarDataMembro(this)">
+      <input type="text" id="inputNascimentoMembro" placeholder="dd/mm/aaaa (ano é opcional)" maxlength="10" inputmode="numeric" autocomplete="off" oninput="formatarDataMembro(this)" onfocus="this.select()">
     </div>
     <div class="campo">
       <label>🧒 Categoria</label>
