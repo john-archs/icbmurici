@@ -1632,8 +1632,15 @@ async function nuvemPull(avisar) {
         return true;
       }
       localStorage.setItem(CHAVE_MEMBROS, JSON.stringify(membrosNuvem));
-      if (data.logo) localStorage.setItem(CHAVE_LOGO_IGREJA, data.logo);
-      else localStorage.setItem(CHAVE_LOGO_IGREJA, '__removida__');
+      // Só aceita a logo da nuvem se for uma imagem embutida (data:...) — o
+      // backend às vezes devolve um link do Google Drive no lugar (mesma
+      // conversão aplicada às fotos/fundos), e sobrescrever a logo local boa
+      // com esse link é o que fazia a logo sumir do cartão gerado.
+      if (data.logo && typeof data.logo === 'string' && data.logo.indexOf('data:') === 0) {
+        localStorage.setItem(CHAVE_LOGO_IGREJA, data.logo);
+      } else if (!data.logo) {
+        localStorage.setItem(CHAVE_LOGO_IGREJA, '__removida__');
+      }
       if (data.fundos) {
         CATEGORIAS_FUNDO.forEach(function(cat) {
           const v = data.fundos[cat.chave];
@@ -1707,7 +1714,11 @@ async function nuvemPush() {
       // Adota a versão "resolvida" devolvida pelo servidor (fotos já convertidas
       // em links do Google Drive), evitando reenviar a mesma imagem depois.
       if (Array.isArray(data.membros)) localStorage.setItem(CHAVE_MEMBROS, JSON.stringify(data.membros));
-      if (data.logo) localStorage.setItem(CHAVE_LOGO_IGREJA, data.logo);
+      // Mesma proteção do nuvemPull: só aceita de volta uma logo embutida
+      // (data:...), nunca um link do Drive no lugar da logo local.
+      if (data.logo && typeof data.logo === 'string' && data.logo.indexOf('data:') === 0) {
+        localStorage.setItem(CHAVE_LOGO_IGREJA, data.logo);
+      }
       if (data.fundos) {
         CATEGORIAS_FUNDO.forEach(function(cat) {
           const v = data.fundos[cat.chave];
@@ -2787,6 +2798,29 @@ function decoracoesCirculosTeens() {
     + '<div class="aniv-card-confete" style="right:190px;bottom:310px;">🎊</div>';
 }
 
+// Resolve qualquer src de imagem (link do Google Drive incluído) para um
+// data URL local antes de inserir no cartão. Mesmo problema já visto na foto
+// do membro e no fundo personalizado: um link do Drive carrega normalmente
+// como <img> na tela, mas sem cabeçalhos CORS o html2canvas não consegue
+// capturá-lo (a imagem sai em branco no cartão gerado, sem erro nenhum).
+// Convertendo para data URL aqui, o html2canvas sempre recebe uma imagem
+// local de verdade, sem depender de CORS na hora da captura.
+async function resolverImagemDataURL(src) {
+  if (!src) return null;
+  if (/^data:/i.test(src)) return src;
+  try {
+    const img = await carregarImagemParaCanvas(src);
+    const canvas = document.createElement('canvas');
+    canvas.width = img.naturalWidth || img.width;
+    canvas.height = img.naturalHeight || img.height;
+    canvas.getContext('2d').drawImage(img, 0, 0);
+    return canvas.toDataURL('image/png');
+  } catch (e) {
+    console.warn('Não foi possível resolver a logo para o cartão:', e);
+    return null;
+  }
+}
+
 async function montarCartaoAniversario(membro, fundoImgCarregada) {
   const area = document.getElementById('aniv-render-area');
 
@@ -2842,7 +2876,7 @@ async function montarCartaoAniversario(membro, fundoImgCarregada) {
     }
   }
 
-  const logo = loadLogoIgreja();
+  const logo = await resolverImagemDataURL(loadLogoIgreja());
   // A logo da igreja é exibida uma única vez, no canto superior direito do cartão.
   const logoTopoHtml = logo ? '<div class="aniv-card-logo-topo"><img src="' + logo + '" alt="Logo"></div>' : '';
   // Rodapé mantém apenas o nome da igreja (sem cruz nem imagem repetida).
