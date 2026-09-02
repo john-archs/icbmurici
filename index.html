@@ -1429,12 +1429,19 @@ function importarJSON(input) {
       }
 
       let membrosAdicionados = 0;
+      let membrosAtualizados = 0;
       let erroMembrosPorEspaco = false;
       const membrosAtuais = loadMembros();
-      const idsMembrosAtuais = new Set(membrosAtuais.map(x => x.id));
+      const indicePorId = new Map(membrosAtuais.map((m, i) => [m.id, i]));
       const membrosParaSalvar = membrosAtuais.slice();
       membrosImportados.forEach(item => {
-        if (item && item.id && item.nome && item.nascimento && !idsMembrosAtuais.has(item.id)) {
+        if (!(item && item.id && item.nome && item.nascimento)) return;
+        if (indicePorId.has(item.id)) {
+          // Membro já existe: atualiza os dados com o que veio do backup
+          // (ex.: correção de data de nascimento) em vez de ignorar.
+          membrosParaSalvar[indicePorId.get(item.id)] = item;
+          membrosAtualizados++;
+        } else {
           membrosParaSalvar.push(item);
           membrosAdicionados++;
         }
@@ -1445,6 +1452,7 @@ function importarJSON(input) {
         console.error("Falha ao salvar membros importados:", errSave);
         erroMembrosPorEspaco = true;
         membrosAdicionados = 0;
+        membrosAtualizados = 0;
       }
 
       let logoAplicada = false;
@@ -1470,7 +1478,8 @@ function importarJSON(input) {
       renderFundosCartaoConfig();
 
       const partes = [];
-      if (membrosAdicionados) partes.push(membrosAdicionados + " membro(s)");
+      if (membrosAdicionados) partes.push(membrosAdicionados + " membro(s) novo(s)");
+      if (membrosAtualizados) partes.push(membrosAtualizados + " membro(s) atualizado(s)");
       if (logoAplicada) partes.push("a logo da igreja");
       if (fundosAplicados) partes.push(fundosAplicados + " fundo(s) de cartão");
       const resumo = partes.length ? partes.join(", ") : "nenhum item novo";
