@@ -311,7 +311,7 @@ body{background:#12203f;min-height:100vh;}
   position:relative;width:100%;aspect-ratio:872/728;
   border-radius:10px;overflow:hidden;background:#0d1224;
   touch-action:none;cursor:grab;margin:0 auto;
-  border:2px solid var(--bd);
+  box-shadow:0 0 0 2px var(--bd); /* borda sem ocupar espaço (a área medida = área visível) */
 }
 .crop-stage:active{cursor:grabbing;}
 .crop-stage img{
@@ -835,6 +835,8 @@ header p{font-size:12px;opacity:.75;margin-top:2px;}
   opacity:0;transition:opacity .3s,transform .3s;
   pointer-events:none;z-index:9999;white-space:nowrap;
 }
+.toast.ok{ background:#16a34a; }
+.toast.erro{ background:#dc2626; }
 .toast.on{opacity:1;transform:translateX(-50%) translateY(0);}
 
 /* ── TOAST COM AÇÃO "DESFAZER" (exclusão de membro) ── */
@@ -1400,9 +1402,11 @@ function existeMembroDuplicado(nome, nascimento, idIgnorar) {
   });
 }
 let toastTimer;
-function mostrarToast(msg) {
+function mostrarToast(msg, tipo) {
   const t = document.getElementById("toast");
   t.textContent = msg;
+  t.classList.remove("ok", "erro");
+  if (tipo) t.classList.add(tipo); // "ok" = verde (sucesso), "erro" = vermelho
   t.classList.add("on");
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => t.classList.remove("on"), 2800);
@@ -1556,11 +1560,43 @@ let paginaMembrosAtual = 1;
 
 // Enquadramento (crop + moldura) guardado à parte, por id de membro. A sincronização
 // com a nuvem substitui a lista de membros pela versão devolvida pelo servidor, que
-// pode não trazer esses campos — sem isso o ajuste se perdia e a foto voltava ao centro.
+// pode devolver esses campos alterados ou ausentes — sem isso o ajuste se perdia ao
+// atualizar a página e a foto voltava ao centro.
+// Regra: o enquadramento guardado neste aparelho vale sobre o que vem da nuvem, a
+// menos que a nuvem tenha MUDADO desde a última vez que este aparelho a viu (aí
+// outro aparelho editou, e a versão da nuvem é adotada). O campo "srv" lembra o
+// último valor visto na nuvem.
 const CHAVE_ENQUADRAMENTOS = "icb_enquadramentos_v1";
 function loadEnquadramentos() {
   try { return JSON.parse(localStorage.getItem(CHAVE_ENQUADRAMENTOS) || "{}") || {}; } catch(e) { return {}; }
 }
+function salvarEnquadramentos(enq) {
+  try { localStorage.setItem(CHAVE_ENQUADRAMENTOS, JSON.stringify(enq)); } catch(e) {}
+}
+function MOLDURAS_VALIDAS_LOCAL(chave) { try { return !!MOLDURAS[chave]; } catch(e) { return false; } }
+
+function reconciliarEnquadramentos(membrosServidor, adotarMudancas) {
+  if (!Array.isArray(membrosServidor)) return;
+  const enq = loadEnquadramentos();
+  membrosServidor.forEach(function(m) {
+    const sv = JSON.stringify([m.crop || null, m.moldura || null]);
+    const e = enq[m.id];
+    if (!e) {
+      if (m.crop || m.moldura) enq[m.id] = { crop: m.crop || null, moldura: m.moldura || null, srv: sv };
+      return;
+    }
+    if (e.srv === undefined) { e.srv = sv; return; }
+    if (e.srv !== sv) {
+      if (adotarMudancas) { // a nuvem mudou (edição em outro aparelho)
+        if (m.crop) e.crop = m.crop;
+        if (m.moldura) e.moldura = m.moldura;
+      }
+      e.srv = sv;
+    }
+  });
+  salvarEnquadramentos(enq);
+}
+
 function loadMembros() {
   let lista;
   try { lista = JSON.parse(localStorage.getItem(CHAVE_MEMBROS) || "[]"); } catch(e) { return []; }
@@ -1569,19 +1605,18 @@ function loadMembros() {
   lista.forEach(function(m) {
     const e = enq[m.id];
     if (!e) return;
-    if (!m.crop && e.crop) m.crop = e.crop;
-    if ((!m.moldura || !MOLDURAS_VALIDAS_LOCAL(m.moldura)) && e.moldura) m.moldura = e.moldura;
+    if (e.crop) m.crop = e.crop;
+    if (e.moldura && MOLDURAS_VALIDAS_LOCAL(e.moldura)) m.moldura = e.moldura;
   });
   return lista;
 }
-function MOLDURAS_VALIDAS_LOCAL(chave) { try { return !!MOLDURAS[chave]; } catch(e) { return false; } }
 function saveMembros(d) {
   try {
     const enq = loadEnquadramentos();
     d.forEach(function(m) {
-      if (m.crop || m.moldura) enq[m.id] = { crop: m.crop || null, moldura: m.moldura || null };
+      if (m.crop || m.moldura) enq[m.id] = Object.assign({}, enq[m.id], { crop: m.crop || null, moldura: m.moldura || null });
     });
-    localStorage.setItem(CHAVE_ENQUADRAMENTOS, JSON.stringify(enq));
+    salvarEnquadramentos(enq);
   } catch(e) {}
   localStorage.setItem(CHAVE_MEMBROS, JSON.stringify(d));
   nuvemPush();
@@ -1741,6 +1776,7 @@ async function nuvemPull(avisar) {
         reRenderizarAposSincronizar();
         return true;
       }
+      reconciliarEnquadramentos(membrosNuvem, true);
       localStorage.setItem(CHAVE_MEMBROS, JSON.stringify(membrosNuvem));
       // Só aceita a logo da nuvem se for uma imagem embutida (data:...) — o
       // backend às vezes devolve um link do Google Drive no lugar (mesma
@@ -1813,6 +1849,7 @@ async function nuvemPush() {
   // qualquer sincronização em andamento terminar antes de começar a sua.
   while (sincronizandoAgora) { await new Promise(function(res){ setTimeout(res, 300); }); }
   sincronizandoAgora = true;
+  mostrarToast('☁️ Enviando à nuvem...');
   try {
     const payload = { membros: loadMembros(), logo: loadLogoIgreja(), fundos: {} };
     CATEGORIAS_FUNDO.forEach(function(cat) { payload.fundos[cat.chave] = loadFundoCartao(cat.chave); });
@@ -1826,6 +1863,7 @@ async function nuvemPush() {
     if (data && data.ok) {
       // Adota a versão "resolvida" devolvida pelo servidor (fotos já convertidas
       // em links do Google Drive), evitando reenviar a mesma imagem depois.
+      reconciliarEnquadramentos(data.membros, false);
       if (Array.isArray(data.membros)) localStorage.setItem(CHAVE_MEMBROS, JSON.stringify(data.membros));
       // Mesma proteção do nuvemPull: só aceita de volta uma logo embutida
       // (data:...), nunca um link do Drive no lugar da logo local.
@@ -1844,13 +1882,14 @@ async function nuvemPush() {
       }
       ultimaSincronizacaoOk = new Date();
       atualizarStatusSincronizacao();
-      mostrarToast('☁️ Enviado à nuvem');
+      mostrarToast('✅ Enviado à nuvem', 'ok');
     } else {
       throw new Error((data && data.erro) || 'resposta inválida');
     }
   } catch (e) {
     console.error('Falha ao sincronizar (push):', e);
     atualizarStatusSincronizacao('⚠️ Salvo neste aparelho, mas falhou ao enviar para a nuvem — ' + mensagemErroSincronizacao(e).replace('⚠️ ', ''));
+    mostrarToast('⚠️ Salvo no aparelho, mas não foi enviado à nuvem', 'erro');
   } finally {
     sincronizandoAgora = false;
   }
@@ -2040,6 +2079,41 @@ function gerarRecorteFoto(fotoSrc, crop, outW, outH) {
 // mesma função da prévia do formulário e do cartão — e guardada em cache.
 const cacheRecortesAvatar = {};
 
+// Miniatura pronta, gerada no momento em que o membro é salvo, a partir da foto
+// original que o usuário acabou de enquadrar. Fica guardada neste aparelho e é
+// usada nas listas enquanto o enquadramento (crop + moldura) for o mesmo — assim
+// a miniatura é idêntica ao ajuste feito, mesmo que a nuvem devolva a foto como
+// link (outra resolução/enquadramento) ou sem os campos de recorte.
+const CHAVE_THUMBS = "icb_thumbs_v1";
+let thumbsMem = null;
+function loadThumbs() {
+  if (thumbsMem) return thumbsMem;
+  try { thumbsMem = JSON.parse(localStorage.getItem(CHAVE_THUMBS) || "{}") || {}; } catch(e) { thumbsMem = {}; }
+  return thumbsMem;
+}
+function assinaturaEnquadramento(crop, moldura) {
+  const c = crop || { zoom: 1, ox: 0.5, oy: 0.5 };
+  return [Number(c.zoom || 1).toFixed(4), Number(c.ox != null ? c.ox : 0.5).toFixed(4), Number(c.oy != null ? c.oy : 0.5).toFixed(4), moldura || MOLDURA_PADRAO].join("|");
+}
+function thumbSalvaDoMembro(m) {
+  const t = loadThumbs()[m.id];
+  return (t && t.sig === assinaturaEnquadramento(m.crop, m.moldura)) ? t.data : null;
+}
+function guardarThumbMembro(id, foto, crop, moldura) {
+  if (!foto) {
+    const t = loadThumbs(); delete t[id];
+    try { localStorage.setItem(CHAVE_THUMBS, JSON.stringify(t)); } catch(e) {}
+    return Promise.resolve();
+  }
+  const dims = dimensoesParaMoldura(moldura || MOLDURA_PADRAO, 200);
+  return gerarRecorteFoto(foto, crop, dims.w, dims.h).then(function(dataURL){
+    if (!dataURL) return;
+    const t = loadThumbs();
+    t[id] = { sig: assinaturaEnquadramento(crop, moldura), data: dataURL };
+    try { localStorage.setItem(CHAVE_THUMBS, JSON.stringify(t)); } catch(e) {}
+  }).catch(function(){});
+}
+
 function chaveRecorteAvatar(m) {
   const f = m.foto || "";
   return m.id + "|" + f.length + "|" + f.slice(-32) + "|" + JSON.stringify(m.crop || null) + "|" + (m.moldura || MOLDURA_PADRAO);
@@ -2063,7 +2137,7 @@ function estiloEnquadramentoCss(crop) {
 // <img> da miniatura: usa o recorte em cache se existir; senão a foto original
 // já posicionada pelo CSS (e depois trocada pelo recorte por aplicarRecortesAvatares).
 function htmlImgAvatar(m) {
-  const cache = cacheRecortesAvatar[chaveRecorteAvatar(m)];
+  const cache = thumbSalvaDoMembro(m) || cacheRecortesAvatar[chaveRecorteAvatar(m)];
   if (cache) return '<img src="' + cache + '" alt="" data-recorte-id="' + m.id + '">';
   return '<img src="' + m.foto + '" alt="" data-recorte-id="' + m.id + '" style="' + estiloEnquadramentoCss(m.crop) + '">';
 }
@@ -2078,6 +2152,8 @@ function aplicarRecortesAvatares(container) {
     const m = porId[img.getAttribute('data-recorte-id')];
     if (!m || !m.foto) return;
     const chave = chaveRecorteAvatar(m);
+    const guardada = thumbSalvaDoMembro(m);
+    if (guardada) { img.style.cssText = ''; img.src = guardada; return; }
     function usarRecorte(dataURL) {
       img.style.cssText = '';
       img.src = dataURL;
@@ -2117,6 +2193,7 @@ function abrirEditorCropFoto(fotoSrc, cropExistente, molduraExistente) {
   cropImgEl.src = fotoSrc;
   document.getElementById('modalCropFoto').classList.add('on');
   ativarListenersCrop();
+  setTimeout(aplicarTransformCrop, 260); // após a animação de abertura do modal
   // Caso a imagem já esteja em cache (evento load pode não disparar de novo)
   if (cropImgEl.complete && cropImgEl.naturalWidth) {
     cropState.iw = cropImgEl.naturalWidth;
@@ -2161,8 +2238,10 @@ function marcarBotaoMolduraAtivo() {
 }
 
 function medirStageCrop() {
-  const r = cropStageEl.getBoundingClientRect();
-  cropState.stageW = r.width; cropState.stageH = r.height;
+  // clientWidth/clientHeight = tamanho real de layout, sem sofrer com o efeito de
+  // "zoom" (scale) da animação de abertura do modal nem contar a borda do palco.
+  cropState.stageW = cropStageEl.clientWidth;
+  cropState.stageH = cropStageEl.clientHeight;
 }
 
 function aplicarTransformCrop() {
@@ -2329,6 +2408,9 @@ function salvarMembroPessoa() {
   }
 
   const membros = loadMembros();
+  // Valores capturados agora (o formulário é limpo logo após salvar).
+  const fotoParaThumb = fotoAtualBase64, cropParaThumb = cropAtualMembro, molduraParaThumb = molduraAtualMembro;
+  let idParaThumb = idEditandoMembro;
 
   if (idEditandoMembro !== null) {
     const idx = membros.findIndex(m => m.id === idEditandoMembro);
@@ -2343,7 +2425,8 @@ function salvarMembroPessoa() {
     }
     mostrarToast("Membro atualizado!");
   } else {
-    membros.push({ id: Date.now(), nome: nome, sexo: sexo, nascimento: nascimento, grupo: grupo, foto: fotoAtualBase64, crop: cropAtualMembro, moldura: molduraAtualMembro });
+    idParaThumb = Date.now();
+    membros.push({ id: idParaThumb, nome: nome, sexo: sexo, nascimento: nascimento, grupo: grupo, foto: fotoAtualBase64, crop: cropAtualMembro, moldura: molduraAtualMembro });
     mostrarToast("Membro adicionado!");
   }
 
@@ -2352,6 +2435,11 @@ function salvarMembroPessoa() {
   renderMembrosLista();
   renderMembrosDoMes();
   popularDatalistMembros();
+  // Gera a miniatura exatamente com o enquadramento ajustado e atualiza as listas.
+  guardarThumbMembro(idParaThumb, fotoParaThumb, cropParaThumb, molduraParaThumb).then(function(){
+    renderMembrosLista();
+    renderMembrosDoMes();
+  });
 }
 
 function editarMembro(id) {
