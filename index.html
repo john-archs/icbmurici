@@ -1554,10 +1554,38 @@ let ordenacaoMembros = "nome";   // "nome", "proximoAniversario", "cadastro"
 let membrosPorPagina = 10;
 let paginaMembrosAtual = 1;
 
-function loadMembros() {
-  try { return JSON.parse(localStorage.getItem(CHAVE_MEMBROS) || "[]"); } catch(e) { return []; }
+// Enquadramento (crop + moldura) guardado à parte, por id de membro. A sincronização
+// com a nuvem substitui a lista de membros pela versão devolvida pelo servidor, que
+// pode não trazer esses campos — sem isso o ajuste se perdia e a foto voltava ao centro.
+const CHAVE_ENQUADRAMENTOS = "icb_enquadramentos_v1";
+function loadEnquadramentos() {
+  try { return JSON.parse(localStorage.getItem(CHAVE_ENQUADRAMENTOS) || "{}") || {}; } catch(e) { return {}; }
 }
-function saveMembros(d) { localStorage.setItem(CHAVE_MEMBROS, JSON.stringify(d)); nuvemPush(); }
+function loadMembros() {
+  let lista;
+  try { lista = JSON.parse(localStorage.getItem(CHAVE_MEMBROS) || "[]"); } catch(e) { return []; }
+  if (!Array.isArray(lista)) return [];
+  const enq = loadEnquadramentos();
+  lista.forEach(function(m) {
+    const e = enq[m.id];
+    if (!e) return;
+    if (!m.crop && e.crop) m.crop = e.crop;
+    if ((!m.moldura || !MOLDURAS_VALIDAS_LOCAL(m.moldura)) && e.moldura) m.moldura = e.moldura;
+  });
+  return lista;
+}
+function MOLDURAS_VALIDAS_LOCAL(chave) { try { return !!MOLDURAS[chave]; } catch(e) { return false; } }
+function saveMembros(d) {
+  try {
+    const enq = loadEnquadramentos();
+    d.forEach(function(m) {
+      if (m.crop || m.moldura) enq[m.id] = { crop: m.crop || null, moldura: m.moldura || null };
+    });
+    localStorage.setItem(CHAVE_ENQUADRAMENTOS, JSON.stringify(enq));
+  } catch(e) {}
+  localStorage.setItem(CHAVE_MEMBROS, JSON.stringify(d));
+  nuvemPush();
+}
 
 // ══════════════════ SINCRONIZAÇÃO EM NUVEM (GOOGLE SHEETS) ══════════════════
 // Cole aqui a URL do seu Apps Script já publicado (termina em /exec) para que
@@ -2001,6 +2029,67 @@ function gerarRecorteFoto(fotoSrc, crop, outW, outH) {
         resolve(canvas.toDataURL('image/jpeg', 0.92));
       } catch (err) { reject(err); }
     }).catch(reject);
+  });
+}
+
+// ══════════════════ MINIATURAS COM O MESMO ENQUADRAMENTO DO EDITOR ══════════════════
+// As miniaturas (lista de membros, aniversariantes do mês, banner do dia) antes
+// usavam a foto inteira com object-fit:cover, ignorando o zoom/posição que o
+// usuário ajustou. Agora cada miniatura é gerada com gerarRecorteFoto() — a
+// mesma função da prévia do formulário e do cartão — e guardada em cache.
+const cacheRecortesAvatar = {};
+
+function chaveRecorteAvatar(m) {
+  const f = m.foto || "";
+  return m.id + "|" + f.length + "|" + f.slice(-32) + "|" + JSON.stringify(m.crop || null) + "|" + (m.moldura || MOLDURA_PADRAO);
+}
+
+// <img> da miniatura: usa o recorte em cache se existir; senão a foto original
+// (que será trocada pelo recorte logo em seguida por aplicarRecortesAvatares).
+// Estilo CSS que reproduz o enquadramento (posição + zoom) sobre a foto original.
+// Usado de imediato (antes do recorte ficar pronto) e como reserva se o recorte
+// não puder ser gerado. Equivalência: object-position = ox/oy e zoom ampliado a
+// partir do ponto (ox, oy) da própria caixa — igual à conta do editor.
+function estiloEnquadramentoCss(crop) {
+  const zoom = (crop && crop.zoom) || 1;
+  const ox = (crop && crop.ox != null) ? crop.ox : 0.5;
+  const oy = (crop && crop.oy != null) ? crop.oy : 0.5;
+  return 'object-position:' + (ox * 100) + '% ' + (oy * 100) + '%;'
+       + 'transform-origin:' + (ox * 100) + '% ' + (oy * 100) + '%;'
+       + 'transform:scale(' + zoom + ');';
+}
+
+// <img> da miniatura: usa o recorte em cache se existir; senão a foto original
+// já posicionada pelo CSS (e depois trocada pelo recorte por aplicarRecortesAvatares).
+function htmlImgAvatar(m) {
+  const cache = cacheRecortesAvatar[chaveRecorteAvatar(m)];
+  if (cache) return '<img src="' + cache + '" alt="" data-recorte-id="' + m.id + '">';
+  return '<img src="' + m.foto + '" alt="" data-recorte-id="' + m.id + '" style="' + estiloEnquadramentoCss(m.crop) + '">';
+}
+
+function aplicarRecortesAvatares(container) {
+  if (!container) return;
+  const imgs = container.querySelectorAll('img[data-recorte-id]');
+  if (!imgs.length) return;
+  const porId = {};
+  loadMembros().forEach(function(m){ porId[m.id] = m; });
+  imgs.forEach(function(img){
+    const m = porId[img.getAttribute('data-recorte-id')];
+    if (!m || !m.foto) return;
+    const chave = chaveRecorteAvatar(m);
+    function usarRecorte(dataURL) {
+      img.style.cssText = '';
+      img.src = dataURL;
+    }
+    if (cacheRecortesAvatar[chave]) { usarRecorte(cacheRecortesAvatar[chave]); return; }
+    // Garante o enquadramento por CSS enquanto o recorte é gerado.
+    img.style.cssText = estiloEnquadramentoCss(m.crop);
+    const dims = dimensoesParaMoldura(m.moldura || MOLDURA_PADRAO, 200);
+    gerarRecorteFoto(m.foto, m.crop, dims.w, dims.h).then(function(dataURL){
+      if (!dataURL) return;
+      cacheRecortesAvatar[chave] = dataURL;
+      if (img.isConnected) usarRecorte(dataURL);
+    }).catch(function(){ /* mantém a foto original com o enquadramento por CSS */ });
   });
 }
 
@@ -2502,7 +2591,7 @@ function renderMembrosLista() {
 
   box.innerHTML = membrosPagina.map(m => {
     const ini = (m.nome || "?")[0].toUpperCase();
-    const avatarHtml = m.foto ? '<img src="' + m.foto + '" alt="">' : ini;
+    const avatarHtml = m.foto ? htmlImgAvatar(m) : ini;
     const tagGrupo = m.grupo === 'kids' ? ' <span class="tag-grupo">Kids</span>' : (m.grupo === 'teens' ? ' <span class="tag-grupo">Teens</span>' : '');
     // O botão de prévia só aparece quando o membro tem foto enviada (upload),
     // já que sem foto não é possível montar o cartão de aniversário.
@@ -2520,6 +2609,7 @@ function renderMembrosLista() {
       + '</div>'
     + '</div>';
   }).join("");
+  aplicarRecortesAvatares(box);
 
   // Paginação só é exibida quando há mais de uma página.
   if (!pagBox) return;
@@ -2551,7 +2641,7 @@ function renderMembrosDoMes() {
     const o = parseNascimento(m.nascimento);
     const ehHoje = o.dia === hoje.getDate();
     const ini = (m.nome || "?")[0].toUpperCase();
-    const avatarHtml = m.foto ? '<img src="' + m.foto + '" alt="">' : ini;
+    const avatarHtml = m.foto ? htmlImgAvatar(m) : ini;
     const tagGrupo = m.grupo === 'kids' ? ' <span class="tag-grupo">Kids</span>' : (m.grupo === 'teens' ? ' <span class="tag-grupo">Teens</span>' : '');
     // Botão de prévia só para quem tem foto enviada (igual à lista de membros).
     const btnPreviewHtml = m.foto
@@ -2565,6 +2655,7 @@ function renderMembrosDoMes() {
       + btnPreviewHtml
     + '</div>';
   }).join("");
+  aplicarRecortesAvatares(box);
 }
 
 // ══════════════════ DATALIST — sugestões de nomes na aba Escala ══════════════════
@@ -2595,7 +2686,7 @@ function checkAniversariantesHoje() {
     const o = parseNascimento(x.nascimento);
     return o && o.dia === d && o.mes === m;
   }).map(x => {
-    return { id: x.id, nome: x.nome, sexo: x.sexo || 'F', grupo: x.grupo || '', foto: x.foto || null, moldura: x.moldura || MOLDURA_PADRAO };
+    return { id: x.id, nome: x.nome, sexo: x.sexo || 'F', grupo: x.grupo || '', foto: x.foto || null, crop: x.crop || null, moldura: x.moldura || MOLDURA_PADRAO };
   });
 }
 
@@ -2607,7 +2698,7 @@ function mostrarBannerAniversario() {
   const cards = lista.map(function(p, i){
     const msg = gerarMensagemAniversario(p.nome, p.sexo, p.grupo);
     const inicial = (p.nome || "?")[0].toUpperCase();
-    const fotoHtml = p.foto ? '<img src="' + p.foto + '" alt="">' : inicial;
+    const fotoHtml = p.foto ? htmlImgAvatar(p) : inicial;
     // O botão "Gerar imagem" só aparece quando o membro tem foto enviada (upload).
     const btnGerarImagemHtml = p.foto
       ? '<button class="aniv-gerar-imagem" id="btnGerarImagem' + p.id + '" onclick="gerarImagemAniversario(' + p.id + ')">🖼️ Gerar imagem</button>'
@@ -2632,6 +2723,7 @@ function mostrarBannerAniversario() {
       + cards
     + '</div>';
   banner.classList.add("on");
+  aplicarRecortesAvatares(banner);
 }
 
 function copiarMensagemAniversario(i) {
