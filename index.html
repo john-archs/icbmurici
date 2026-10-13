@@ -2553,11 +2553,16 @@ function renderMembrosDoMes() {
     const ini = (m.nome || "?")[0].toUpperCase();
     const avatarHtml = m.foto ? '<img src="' + m.foto + '" alt="">' : ini;
     const tagGrupo = m.grupo === 'kids' ? ' <span class="tag-grupo">Kids</span>' : (m.grupo === 'teens' ? ' <span class="tag-grupo">Teens</span>' : '');
+    // Botão de prévia só para quem tem foto enviada (igual à lista de membros).
+    const btnPreviewHtml = m.foto
+      ? '<button class="escala-preview" onclick="abrirPreviewAniversario(' + m.id + ')" title="Ver prévia do cartão de aniversário">🎂</button>'
+      : '';
     return '<div class="membro-mes-item' + (ehHoje ? ' hoje' : '') + '">'
       + '<div class="membro-mes-dia">' + String(o.dia).padStart(2,"0") + '</div>'
       + '<div class="membro-mes-avatar ' + classeMoldura(m.moldura) + '">' + avatarHtml + '</div>'
       + '<div class="membro-mes-nome">' + escH(m.nome) + tagGrupo + '</div>'
       + (ehHoje ? '<span class="membro-badge-hoje">HOJE 🎉</span>' : '')
+      + btnPreviewHtml
     + '</div>';
   }).join("");
 }
@@ -2652,6 +2657,7 @@ function fecharBannerAniversario() {
 const AVISO_PROXIMO_ANIV_JANELA_DIAS = 2;   // avisa para hoje (0), amanhã (1) e depois de amanhã (2)
 const AVISO_PROXIMO_ANIV_DURACAO_MS = 3000; // 3 segundos
 let timerAvisoProximoAniv = null;
+let avisoProximoAnivJaExibido = false; // garante que o modal apareça só uma vez por abertura da página
 
 function gerarTextoAvisoProximoAniv(nome, dias) {
   const nomeSeguro = escH(nome);
@@ -2663,6 +2669,7 @@ function gerarTextoAvisoProximoAniv(nome, dias) {
 function mostrarAvisoProximosAniversarios() {
   const el = document.getElementById("avisoProximoAniversario");
   if (!el) return;
+  if (avisoProximoAnivJaExibido) return; // já foi mostrado (ex.: a sincronização re-renderiza e chamaria de novo)
 
   const proximos = loadMembros()
     .map(m => ({ nome: m.nome, dias: diasAteProximoAniversario(m.nascimento) }))
@@ -2686,6 +2693,7 @@ function mostrarAvisoProximosAniversarios() {
   };
 
   el.classList.add("on");
+  avisoProximoAnivJaExibido = true;
 
   clearTimeout(timerAvisoProximoAniv);
   timerAvisoProximoAniv = setTimeout(function () {
