@@ -79,28 +79,43 @@ body{background:#12203f;min-height:100vh;}
 .tab-panel{ display:none; }
 .tab-panel.active{ display:block; }
 
-/* ══════════════════ AVISO TEMPORÁRIO — ANIVERSÁRIOS PRÓXIMOS ══════════════════ */
-/* Notificação curta (some sozinha após alguns segundos) exibida no topo da tela
-   ao abrir a página, avisando sobre aniversários de hoje/amanhã/próximos dias.
-   É independente do #aniversarioBanner (que é o banner completo, com cartão e
-   mensagem, exclusivo do(s) aniversariante(s) de hoje). */
+/* ══════════════════ AVISO TEMPORÁRIO — ANIVERSÁRIOS PRÓXIMOS ══════════════════
+   Modal central (some sozinho após 3 segundos) exibido ao abrir a página,
+   avisando sobre aniversários de hoje/amanhã/próximos dias. Clicar fora ou
+   na caixa também fecha. É independente do #aniversarioBanner (que é o banner
+   completo, com cartão e mensagem, exclusivo do(s) aniversariante(s) de hoje). */
 #avisoProximoAniversario{
-  position:fixed; top:0; left:0; right:0; z-index:9999;
-  transform:translateY(-115%);
-  transition:transform .35s ease;
-  background:linear-gradient(135deg,#f0c040,#e0952f);
-  box-shadow:0 3px 14px rgba(0,0,0,.28);
-  padding:10px 16px;
+  position:fixed; inset:0; z-index:10001;
+  display:flex; align-items:center; justify-content:center;
+  padding:20px;
+  background:rgba(10,20,50,.45);
+  opacity:0; pointer-events:none;
+  transition:opacity .25s ease;
   font-family:'Segoe UI',Arial,sans-serif;
 }
-#avisoProximoAniversario.on{ transform:translateY(0); }
-#avisoProximoAniversario .aviso-linha{
-  display:flex; align-items:center; gap:8px;
-  font-size:13px; font-weight:700; color:#3a2200;
-  padding:3px 0; max-width:640px; margin:0 auto;
+#avisoProximoAniversario.on{ opacity:1; pointer-events:auto; }
+#avisoProximoAniversario .aviso-caixa{
+  background:#fff;
+  border-radius:16px;
+  border-top:5px solid #f0c040;
+  padding:20px 22px 18px;
+  width:100%; max-width:340px;
+  text-align:center;
+  box-shadow:0 8px 40px rgba(10,20,50,.3);
+  transform:scale(.94);
+  transition:transform .25s ease;
 }
-#avisoProximoAniversario .aviso-linha + .aviso-linha{
-  border-top:1px solid rgba(0,0,0,.12); margin-top:3px; padding-top:6px;
+#avisoProximoAniversario.on .aviso-caixa{ transform:scale(1); }
+#avisoProximoAniversario .aviso-titulo{
+  font-size:15px; font-weight:800; color:#1a3a6b;
+  margin-bottom:10px;
+}
+#avisoProximoAniversario .aviso-linha{
+  display:flex; align-items:center; justify-content:center; gap:8px;
+  font-size:13.5px; font-weight:700; color:#3a2200;
+  padding:7px 10px; border-radius:9px;
+  background:#fdf3d4;
+  margin-top:6px;
 }
 
 /* ══════════════════ BANNER DE ANIVERSÁRIO ══════════════════ */
@@ -1086,7 +1101,7 @@ header p{font-size:12px;opacity:.75;margin-top:2px;}
 </head>
 <body>
 
-<!-- Aviso temporário (some sozinho) de aniversários próximos: hoje, amanhã ou em poucos dias -->
+<!-- Aviso temporário (modal central, some sozinho em 3s) de aniversários próximos: hoje, amanhã ou em poucos dias -->
 <div id="avisoProximoAniversario"></div>
 
 <div class="tabbar">
@@ -1615,6 +1630,49 @@ function reRenderizarAposSincronizar() {
   if (typeof renderFundosCartaoConfig === 'function') renderFundosCartaoConfig();
 }
 
+// ── IMAGENS DA NUVEM EM APARELHO NOVO ──
+// Quando o Apps Script devolve a logo/fundos como LINK (ex.: Google Drive) em
+// vez de data:, o nuvemPull ignora esse valor para não sobrescrever uma versão
+// local boa. Mas um aparelho novo não tem versão local — então aqui baixamos o
+// link, convertemos em data: e guardamos, SÓ se o aparelho ainda não tiver uma
+// imagem local válida para aquela chave.
+async function baixarImagemDaNuvem(chave, link, opts) {
+  function temLocalValida() {
+    const atual = localStorage.getItem(chave);
+    return !!atual && atual.indexOf('data:') === 0;
+  }
+  if (temLocalValida()) return false;
+  const dataURL = await resolverImagemDataURL(link, opts.formato, opts.qualidade, opts.max);
+  if (!dataURL) return false;
+  if (temLocalValida()) return false; // o usuário enviou outra enquanto baixava
+  try { localStorage.setItem(chave, dataURL); } catch (e) { return false; }
+  return true;
+}
+
+async function completarImagensDaNuvem(data) {
+  if (!data) return;
+  let mudou = false;
+  const ehLink = v => typeof v === 'string' && /^https?:/i.test(v);
+
+  if (ehLink(data.logo)) {
+    mudou = (await baixarImagemDaNuvem(CHAVE_LOGO_IGREJA, data.logo,
+      { formato: 'image/png', max: 400 })) || mudou;
+  }
+  if (data.fundos) {
+    for (const cat of CATEGORIAS_FUNDO) {
+      const v = data.fundos[cat.chave];
+      if (ehLink(v)) {
+        mudou = (await baixarImagemDaNuvem(CHAVE_FUNDO_PREFIX + cat.chave, v,
+          { formato: 'image/jpeg', qualidade: 0.85, max: 1080 })) || mudou;
+      }
+    }
+  }
+  if (mudou) {
+    atualizarLogoIgrejaUI();
+    renderFundosCartaoConfig();
+  }
+}
+
 // Busca os dados mais recentes da planilha e atualiza este aparelho.
 async function nuvemPull(avisar) {
   const url = getSheetsUrl();
@@ -1686,6 +1744,9 @@ async function nuvemPull(avisar) {
       ultimaSincronizacaoOk = new Date();
       atualizarStatusSincronizacao();
       reRenderizarAposSincronizar();
+      // Em segundo plano (sem await): se a nuvem devolveu logo/fundos como
+      // link e este aparelho ainda não tem a imagem, baixa e guarda localmente.
+      completarImagensDaNuvem(data);
       if (avisar) mostrarToast('✅ Sincronizado com a nuvem!');
       sincronizandoAgora = false;
       return true;
@@ -2585,11 +2646,11 @@ function fecharBannerAniversario() {
 }
 
 // ══════════════════ AVISO TEMPORÁRIO — ANIVERSÁRIOS PRÓXIMOS ══════════════════
-// Notificação curta, exibida automaticamente ao abrir a página quando há
+// Modal central, exibido automaticamente ao abrir a página quando há
 // membros fazendo aniversário hoje, amanhã ou nos próximos dias. Some
-// sozinha após 7 segundos (não depende de o usuário fechar).
+// sozinho após 3 segundos (ou ao tocar na tela).
 const AVISO_PROXIMO_ANIV_JANELA_DIAS = 2;   // avisa para hoje (0), amanhã (1) e depois de amanhã (2)
-const AVISO_PROXIMO_ANIV_DURACAO_MS = 7000; // 7 segundos
+const AVISO_PROXIMO_ANIV_DURACAO_MS = 3000; // 3 segundos
 let timerAvisoProximoAniv = null;
 
 function gerarTextoAvisoProximoAniv(nome, dias) {
@@ -2610,9 +2671,19 @@ function mostrarAvisoProximosAniversarios() {
 
   if (!proximos.length) { el.classList.remove("on"); el.innerHTML = ""; return; }
 
-  el.innerHTML = proximos.map(p =>
-    '<div class="aviso-linha">🎈 ' + gerarTextoAvisoProximoAniv(p.nome, p.dias) + '</div>'
-  ).join("");
+  el.innerHTML =
+    '<div class="aviso-caixa">'
+      + '<div class="aviso-titulo">🎂 Aniversários próximos</div>'
+      + proximos.map(p =>
+          '<div class="aviso-linha">🎈 ' + gerarTextoAvisoProximoAniv(p.nome, p.dias) + '</div>'
+        ).join("")
+    + '</div>';
+
+  // Tocar em qualquer lugar do aviso fecha na hora.
+  el.onclick = function () {
+    clearTimeout(timerAvisoProximoAniv);
+    el.classList.remove("on");
+  };
 
   el.classList.add("on");
 
@@ -2823,24 +2894,32 @@ function decoracoesCirculosTeens() {
 }
 
 // Resolve qualquer src de imagem (link do Google Drive incluído) para um
-// data URL local antes de inserir no cartão. Mesmo problema já visto na foto
-// do membro e no fundo personalizado: um link do Drive carrega normalmente
-// como <img> na tela, mas sem cabeçalhos CORS o html2canvas não consegue
-// capturá-lo (a imagem sai em branco no cartão gerado, sem erro nenhum).
-// Convertendo para data URL aqui, o html2canvas sempre recebe uma imagem
-// local de verdade, sem depender de CORS na hora da captura.
-async function resolverImagemDataURL(src) {
+// data URL local. Mesmo problema já visto na foto do membro e no fundo
+// personalizado: um link do Drive carrega normalmente como <img> na tela,
+// mas sem cabeçalhos CORS o html2canvas não consegue capturá-lo (a imagem
+// sai em branco no cartão gerado, sem erro nenhum). Convertendo para data
+// URL aqui, o html2canvas sempre recebe uma imagem local de verdade.
+//
+// Parâmetros opcionais (usados ao baixar logo/fundos da nuvem para um
+// aparelho novo, ver completarImagensDaNuvem):
+//   formato   — 'image/png' (padrão) ou 'image/jpeg'
+//   qualidade — 0..1, usado em JPEG (padrão 0.92)
+//   maxLargura — redimensiona mantendo a proporção, para não estourar o
+//                localStorage com imagens muito grandes
+async function resolverImagemDataURL(src, formato, qualidade, maxLargura) {
   if (!src) return null;
   if (/^data:/i.test(src)) return src;
   try {
     const img = await carregarImagemParaCanvas(src);
+    let w = img.naturalWidth || img.width;
+    let h = img.naturalHeight || img.height;
+    if (maxLargura && w > maxLargura) { h = Math.round(h * maxLargura / w); w = maxLargura; }
     const canvas = document.createElement('canvas');
-    canvas.width = img.naturalWidth || img.width;
-    canvas.height = img.naturalHeight || img.height;
-    canvas.getContext('2d').drawImage(img, 0, 0);
-    return canvas.toDataURL('image/png');
+    canvas.width = w; canvas.height = h;
+    canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+    return canvas.toDataURL(formato || 'image/png', qualidade || 0.92);
   } catch (e) {
-    console.warn('Não foi possível resolver a logo para o cartão:', e);
+    console.warn('Não foi possível resolver a imagem:', e);
     return null;
   }
 }
