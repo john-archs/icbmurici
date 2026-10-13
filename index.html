@@ -1844,6 +1844,7 @@ async function nuvemPush() {
       }
       ultimaSincronizacaoOk = new Date();
       atualizarStatusSincronizacao();
+      mostrarToast('☁️ Enviado à nuvem');
     } else {
       throw new Error((data && data.erro) || 'resposta inválida');
     }
